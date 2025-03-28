@@ -85,7 +85,7 @@ export function createPlane() {
   planeGroup.position.y = 50;
   
   // 对飞机进行缩放
-  planeGroup.scale.set(0.5, 0.5, 0.5);
+  planeGroup.scale.set(1.0, 1.0, 1.0);
   
   return {
     plane: planeGroup,

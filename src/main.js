@@ -5,6 +5,11 @@ import { createBuildings } from './buildings.js';
 import { createSky } from './sky.js';
 import { createGround } from './ground.js';
 
+// 地图生成相关常量
+const CHUNK_SIZE = 500; // 区块大小
+const RENDER_DISTANCE = 2; // 渲染距离（区块数）
+const loadedChunks = new Map(); // 存储已加载的区块
+
 // 初始化场景
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
@@ -38,10 +43,6 @@ scene.add(sky);
 // 地面
 const ground = createGround();
 scene.add(ground);
-
-// 创建建筑群
-const buildings = createBuildings();
-scene.add(buildings);
 
 // 创建飞机
 const { plane, propeller } = createPlane();
@@ -161,34 +162,352 @@ function updatePlane() {
   gameState.score += Math.abs(gameState.speed) * 0.1;
   document.getElementById('score').innerText = `Score: ${Math.floor(gameState.score)}`;
 
+  // 更新区块加载
+  updateChunks();
+
   // 检测碰撞
   detectCollisions();
+}
+
+// 区块坐标转换函数
+function getChunkCoord(position) {
+  return Math.floor(position / CHUNK_SIZE);
+}
+
+// 加载区块
+function loadChunk(chunkX, chunkZ) {
+  const chunkKey = `${chunkX},${chunkZ}`;
+  
+  // 检查区块是否已加载
+  if (loadedChunks.has(chunkKey)) {
+    return;
+  }
+  
+  // 创建新区块
+  const chunk = new THREE.Group();
+  
+  // 创建建筑
+  const buildingCount = 5 + Math.floor(Math.random() * 15); // 每个区块5-20个建筑
+  
+  for (let i = 0; i < buildingCount; i++) {
+    // 随机建筑物尺寸
+    const width = 10 + Math.random() * 20;
+    const height = 20 + Math.random() * 180; // 摩天大楼，高度从20到200不等
+    const depth = 10 + Math.random() * 20;
+    
+    // 随机位置（在区块内）
+    const x = chunkX * CHUNK_SIZE + Math.random() * CHUNK_SIZE;
+    const z = chunkZ * CHUNK_SIZE + Math.random() * CHUNK_SIZE;
+    
+    // 创建建筑物
+    const building = createBuildingWithWindows(width, height, depth);
+    building.position.set(x, 0, z);
+    
+    // 随机旋转
+    building.rotation.y = Math.random() * Math.PI * 2;
+    
+    chunk.add(building);
+  }
+  
+  // 创建树木
+  const treeCount = 10 + Math.floor(Math.random() * 30); // 每个区块10-40棵树
+  
+  for (let i = 0; i < treeCount; i++) {
+    // 创建树木
+    const treeType = Math.random() < 0.7 ? 'normal' : (Math.random() < 0.5 ? 'pine' : 'palm');
+    const tree = createTree(treeType);
+    
+    // 随机位置（在区块内）
+    const x = chunkX * CHUNK_SIZE + Math.random() * CHUNK_SIZE;
+    const z = chunkZ * CHUNK_SIZE + Math.random() * CHUNK_SIZE;
+    
+    // 随机大小
+    const scale = 0.5 + Math.random() * 1.5;
+    tree.scale.set(scale, scale, scale);
+    
+    tree.position.set(x, 0, z);
+    chunk.add(tree);
+  }
+  
+  // 将区块添加到场景
+  scene.add(chunk);
+  
+  // 记录已加载区块
+  loadedChunks.set(chunkKey, chunk);
+}
+
+// 卸载区块
+function unloadChunk(chunkX, chunkZ) {
+  const chunkKey = `${chunkX},${chunkZ}`;
+  
+  if (loadedChunks.has(chunkKey)) {
+    const chunk = loadedChunks.get(chunkKey);
+    scene.remove(chunk);
+    loadedChunks.delete(chunkKey);
+  }
+}
+
+// 更新区块加载
+function updateChunks() {
+  const playerChunkX = getChunkCoord(plane.position.x);
+  const playerChunkZ = getChunkCoord(plane.position.z);
+  
+  // 加载玩家周围的区块
+  for (let x = playerChunkX - RENDER_DISTANCE; x <= playerChunkX + RENDER_DISTANCE; x++) {
+    for (let z = playerChunkZ - RENDER_DISTANCE; z <= playerChunkZ + RENDER_DISTANCE; z++) {
+      loadChunk(x, z);
+    }
+  }
+  
+  // 卸载距离玩家较远的区块
+  for (const chunkKey of Array.from(loadedChunks.keys())) {
+    const [chunkX, chunkZ] = chunkKey.split(',').map(Number);
+    
+    if (
+      chunkX < playerChunkX - RENDER_DISTANCE - 1 ||
+      chunkX > playerChunkX + RENDER_DISTANCE + 1 ||
+      chunkZ < playerChunkZ - RENDER_DISTANCE - 1 ||
+      chunkZ > playerChunkZ + RENDER_DISTANCE + 1
+    ) {
+      unloadChunk(chunkX, chunkZ);
+    }
+  }
+}
+
+// 创建树木
+function createTree(type = 'normal') {
+  const treeGroup = new THREE.Group();
+  
+  // 基于类型创建不同形状的树
+  switch(type) {
+    case 'pine': // 松树
+      // 树干
+      const pineTrunkGeometry = new THREE.CylinderGeometry(1, 1.5, 15, 8);
+      const pineTrunkMaterial = new THREE.MeshPhongMaterial({
+        color: 0x8B4513,
+        flatShading: true
+      });
+      const pineTrunk = new THREE.Mesh(pineTrunkGeometry, pineTrunkMaterial);
+      pineTrunk.castShadow = true;
+      pineTrunk.position.y = 7.5;
+      treeGroup.add(pineTrunk);
+      
+      // 树冠 - 多层圆锥形
+      const pineColors = [0x006400, 0x228B22, 0x308014];
+      const pineColor = pineColors[Math.floor(Math.random() * pineColors.length)];
+      const pineMaterial = new THREE.MeshPhongMaterial({
+        color: pineColor,
+        flatShading: true
+      });
+      
+      // 叠加的4层树冠
+      for (let i = 0; i < 4; i++) {
+        const height = 6 - i * 0.5;
+        const radius = 5 - i * 0.7;
+        const posY = 10 + i * 3;
+        
+        const pineTopGeometry = new THREE.ConeGeometry(radius, height, 8);
+        const pineTop = new THREE.Mesh(pineTopGeometry, pineMaterial);
+        pineTop.position.y = posY;
+        pineTop.castShadow = true;
+        treeGroup.add(pineTop);
+      }
+      break;
+      
+    case 'palm': // 棕榈树
+      // 树干
+      const palmTrunkGeometry = new THREE.CylinderGeometry(0.6, 1, 15, 8);
+      const palmTrunkMaterial = new THREE.MeshPhongMaterial({
+        color: 0xA0522D,
+        flatShading: true
+      });
+      
+      const palmTrunk = new THREE.Mesh(palmTrunkGeometry, palmTrunkMaterial);
+      palmTrunk.castShadow = true;
+      palmTrunk.position.y = 7.5;
+      treeGroup.add(palmTrunk);
+      
+      // 棕榈叶
+      const leafCount = 5 + Math.floor(Math.random() * 4);
+      const leafMaterial = new THREE.MeshPhongMaterial({
+        color: 0x4CA64C,
+        flatShading: true,
+        side: THREE.DoubleSide
+      });
+      
+      for (let i = 0; i < leafCount; i++) {
+        const leafGeometry = new THREE.ConeGeometry(0.5, 8, 4, 1, true);
+        const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+        
+        // 平面化叶子
+        leaf.scale.y = 0.2;
+        leaf.scale.x = 2;
+        
+        // 围绕树干顶部放置叶子
+        const angle = (i / leafCount) * Math.PI * 2;
+        leaf.position.set(
+          Math.sin(angle) * 1.5,
+          15,
+          Math.cos(angle) * 1.5
+        );
+        
+        // 使叶子向外倾斜
+        leaf.rotation.x = Math.PI / 2;
+        leaf.rotation.z = angle + Math.PI / 2;
+        
+        leaf.castShadow = true;
+        treeGroup.add(leaf);
+      }
+      break;
+      
+    default: // 普通树
+      // 树干
+      const trunkGeometry = new THREE.CylinderGeometry(1, 1.5, 10, 8);
+      const trunkMaterial = new THREE.MeshPhongMaterial({
+        color: 0x8B4513,
+        flatShading: true
+      });
+      const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+      trunk.castShadow = true;
+      trunk.position.y = 5;
+      treeGroup.add(trunk);
+      
+      // 树冠
+      const topGeometry = new THREE.SphereGeometry(5, 8, 8);
+      const topMaterial = new THREE.MeshPhongMaterial({
+        color: 0x228B22,
+        flatShading: true
+      });
+      const top = new THREE.Mesh(topGeometry, topMaterial);
+      top.position.y = 12;
+      top.castShadow = true;
+      treeGroup.add(top);
+  }
+  
+  return treeGroup;
+}
+
+// 创建建筑
+function createBuildingWithWindows(width, height, depth) {
+  const buildingGroup = new THREE.Group();
+  
+  // 建筑物材质
+  const buildingMaterials = [
+    new THREE.MeshPhongMaterial({ color: 0x555555, flatShading: true }), // 灰色
+    new THREE.MeshPhongMaterial({ color: 0x333333, flatShading: true }), // 深灰色
+    new THREE.MeshPhongMaterial({ color: 0x666666, flatShading: true }), // 浅灰色
+    new THREE.MeshPhongMaterial({ color: 0x225577, flatShading: true }), // 蓝灰色
+    new THREE.MeshPhongMaterial({ color: 0x775522, flatShading: true }), // 棕色
+  ];
+  
+  // 窗户材质
+  const windowMaterial = new THREE.MeshPhongMaterial({
+    color: 0xffffcc,
+    emissive: 0x444444,
+    flatShading: true
+  });
+  
+  // 主体
+  const mainBuildingGeometry = new THREE.BoxGeometry(width, height, depth);
+  const material = buildingMaterials[Math.floor(Math.random() * buildingMaterials.length)];
+  const mainBuilding = new THREE.Mesh(mainBuildingGeometry, material);
+  mainBuilding.castShadow = true;
+  mainBuilding.receiveShadow = true;
+  buildingGroup.add(mainBuilding);
+  
+  // 添加窗户
+  const windowSize = 2;
+  const windowSpacing = 5;
+  
+  // 计算每一面的窗户数量
+  const windowsX = Math.floor(width / windowSpacing) - 1;
+  const windowsY = Math.floor(height / windowSpacing) - 1;
+  const windowsZ = Math.floor(depth / windowSpacing) - 1;
+  
+  const windowGeometry = new THREE.BoxGeometry(windowSize, windowSize, 0.5);
+  
+  // 随机决定一些窗户是否亮着
+  const windowChance = 0.7; // 70%的窗户是亮的
+  
+  // 在x轴方向的两个面添加窗户
+  for (let y = 0; y < windowsY; y++) {
+    for (let z = 0; z < windowsZ; z++) {
+      if (Math.random() < windowChance) {
+        // 前面
+        const frontWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+        frontWindow.position.set(-width/2 - 0.1, 
+                                -height/2 + y * windowSpacing + windowSpacing, 
+                                -depth/2 + z * windowSpacing + windowSpacing);
+        buildingGroup.add(frontWindow);
+      }
+      
+      if (Math.random() < windowChance) {
+        // 后面
+        const backWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+        backWindow.position.set(width/2 + 0.1,
+                              -height/2 + y * windowSpacing + windowSpacing,
+                              -depth/2 + z * windowSpacing + windowSpacing);
+        backWindow.rotation.y = Math.PI;
+        buildingGroup.add(backWindow);
+      }
+    }
+  }
+  
+  // 在z轴方向的两个面添加窗户
+  for (let y = 0; y < windowsY; y++) {
+    for (let x = 0; x < windowsX; x++) {
+      if (Math.random() < windowChance) {
+        // 左面
+        const leftWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+        leftWindow.position.set(-width/2 + x * windowSpacing + windowSpacing,
+                               -height/2 + y * windowSpacing + windowSpacing,
+                               -depth/2 - 0.1);
+        leftWindow.rotation.y = Math.PI / 2;
+        buildingGroup.add(leftWindow);
+      }
+      
+      if (Math.random() < windowChance) {
+        // 右面
+        const rightWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+        rightWindow.position.set(-width/2 + x * windowSpacing + windowSpacing,
+                                -height/2 + y * windowSpacing + windowSpacing,
+                                depth/2 + 0.1);
+        rightWindow.rotation.y = -Math.PI / 2;
+        buildingGroup.add(rightWindow);
+      }
+    }
+  }
+  
+  // 将组进行平移，使建筑物底部位于y=0的平面上
+  buildingGroup.position.y = height / 2;
+  
+  return buildingGroup;
 }
 
 // 碰撞检测
 function detectCollisions() {
   // 简单碰撞检测 - 根据飞机位置和建筑物位置检测碰撞
-  // 这里使用的是简化的检测，实际游戏可能需要更精确的碰撞检测
   const planePosition = plane.position.clone();
-  const buildingsMesh = buildings.children;
   
-  for (let building of buildingsMesh) {
-    const buildingBoundingBox = new THREE.Box3().setFromObject(building);
-    
-    // 飞机边界框（简化为一个点加上半径）
-    const planeRadius = 5;
-    if (planePosition.y < buildingBoundingBox.max.y && 
-        planePosition.distanceTo(building.position) < building.scale.x * 10 + planeRadius) {
-      gameOver();
-      break;
+  // 检测与加载的所有区块中的建筑物的碰撞
+  for (const chunk of Array.from(loadedChunks.values())) {
+    for (const object of chunk.children) {
+      // 只检测与建筑物的碰撞（树木可以穿过）
+      if (object.children && object.children.length > 0 && object.children[0].geometry && 
+          object.children[0].geometry.type === 'BoxGeometry' && 
+          object.children[0].geometry.parameters.height > 15) {
+        
+        const buildingBoundingBox = new THREE.Box3().setFromObject(object);
+        
+        // 飞机边界框（简化为一个点加上半径）
+        const planeRadius = 5;
+        if (planePosition.y < buildingBoundingBox.max.y && 
+            planePosition.distanceTo(object.position) < object.scale.x * 10 + planeRadius) {
+          gameOver();
+          break;
+        }
+      }
     }
-  }
-
-  // 检测是否超出游戏区域
-  if (Math.abs(planePosition.x) > 1000 || Math.abs(planePosition.z) > 1000) {
-    // 回到游戏区域中央
-    plane.position.x = 0;
-    plane.position.z = 0;
   }
 }
 
@@ -203,7 +522,7 @@ function gameOver() {
 // 更新相机位置
 function updateCamera() {
   // 第三人称视角，相机跟随飞机
-  const cameraOffset = new THREE.Vector3(0, 30, 100);
+  const cameraOffset = new THREE.Vector3(0, 35, 80); // 提高相机位置，Y轴从15增加到35
   const cameraPosition = plane.position.clone().add(cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y));
   
   camera.position.copy(cameraPosition);
@@ -230,5 +549,8 @@ window.addEventListener('resize', () => {
   
   renderer.setSize(width, height);
 });
+
+// 初始化区块加载
+updateChunks();
 
 animate(); 
