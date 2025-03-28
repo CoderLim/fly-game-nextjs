@@ -1,0 +1,17 @@
+{
+  "name": "fly-game-threejs",
+  "version": "1.0.0",
+  "description": "A 3D flying game with skyscrapers",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.159.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

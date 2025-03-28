@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Flying Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      width: 100%;
+      text-align: center;
+      color: white;
+      font-family: Arial, sans-serif;
+      pointer-events: none;
+    }
+    #score {
+      position: absolute;
+      top: 40px;
+      width: 100%;
+      text-align: center;
+      color: white;
+      font-family: Arial, sans-serif;
+      font-size: 24px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">W/S - 上升/下降, A/D - 左转/右转, 方向键 - 前后左右移动</div>
+  <div id="score">Score: 0</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html> 
