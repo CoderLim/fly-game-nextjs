@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { createPlane } from './plane.js';
 import { createBuildings } from './buildings.js';
 import { createSky } from './sky.js';
@@ -81,6 +82,10 @@ scene.add(sky);
 const ground = createGround();
 scene.add(ground);
 
+// 首先加载LittlestTokyo模型，确保它有足够时间加载
+console.log('准备加载LittlestTokyo模型...');
+loadLittlestTokyoModel();
+
 // 创建飞机
 const { plane, propeller } = createPlane();
 scene.add(plane);
@@ -131,10 +136,77 @@ window.addEventListener('keyup', (e) => {
   }
 });
 
+// 碰撞检测 - 阻止穿透而不是结束游戏
+function detectCollisions() {
+  // 保存上一帧的位置，用于碰撞后回退
+  const previousPosition = new THREE.Vector3().copy(plane.position);
+  const planePosition = plane.position.clone();
+  let collision = false;
+  
+  // 检测与LittlestTokyo模型的碰撞
+  if (window.tokyoModel) {
+    const tokyoBoundingBox = new THREE.Box3().setFromObject(window.tokyoModel);
+    const planeRadius = 5;
+    
+    if (planePosition.y < tokyoBoundingBox.max.y && 
+        planePosition.distanceTo(window.tokyoModel.position) < 100) { // 使用适当的碰撞距离
+      console.log('与LittlestTokyo碰撞');
+      collision = true;
+    }
+  }
+  
+  // 检测与加载的所有区块中的建筑物的碰撞
+  for (const chunk of Array.from(loadedChunks.values())) {
+    if (collision) break; // 如果已经检测到碰撞，跳过剩余检测
+    
+    for (const object of chunk.children) {
+      // 只检测与建筑物的碰撞（树木可以穿过）
+      if (object.children && object.children.length > 0 && object.children[0].geometry && 
+          object.children[0].geometry.type === 'BoxGeometry' && 
+          object.children[0].geometry.parameters.height > 15) {
+        
+        const buildingBoundingBox = new THREE.Box3().setFromObject(object);
+        
+        // 飞机边界框（简化为一个点加上半径）
+        const planeRadius = 5;
+        if (planePosition.y < buildingBoundingBox.max.y && 
+            planePosition.distanceTo(object.position) < object.scale.x * 10 + planeRadius) {
+          console.log('与建筑物碰撞');
+          collision = true;
+          break;
+        }
+      }
+    }
+  }
+  
+  // 如果发生碰撞，回退到上一帧的位置并减速
+  if (collision) {
+    // 回退到上一帧的位置
+    plane.position.copy(previousPosition);
+    
+    // 减少速度 - 模拟碰撞反弹
+    gameState.speed = -gameState.speed * 0.5; // 反向并减半速度
+    
+    // 添加碰撞反馈 - 让相机轻微晃动
+    camera.position.y += Math.random() * 2 - 1;
+    camera.position.x += Math.random() * 2 - 1;
+    
+    // 播放碰撞音效 (假设有这样的功能)
+    // playCollisionSound();
+    
+    return true;
+  }
+  
+  return false;
+}
+
 // 更新飞机位置和旋转
 function updatePlane() {
   if (gameState.crashed) return;
 
+  // 记住更新前的位置（用于碰撞检测）
+  const previousPosition = plane.position.clone();
+  
   // 前进/后退
   if (keys.ArrowUp) {
     gameState.speed = Math.min(gameState.speed + gameState.acceleration, gameState.maxSpeed);
@@ -187,7 +259,7 @@ function updatePlane() {
   plane.rotation.y = gameState.planeRotation.y;
   plane.rotation.z = gameState.planeRotation.z;
 
-  // 更新飞机位置
+  // 更新飞机位置 - 确保方向向量是沿着z轴负方向
   const direction = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), gameState.planeRotation.y);
   plane.position.addScaledVector(direction, gameState.speed);
   plane.position.y = gameState.altitude;
@@ -204,7 +276,7 @@ function updatePlane() {
   // 更新区块加载
   updateChunks();
 
-  // 检测碰撞
+  // 检测碰撞 - 如果发生碰撞，可能会回退位置
   detectCollisions();
 }
 
@@ -525,39 +597,10 @@ function createBuildingWithWindows(width, height, depth) {
   return buildingGroup;
 }
 
-// 碰撞检测
-function detectCollisions() {
-  // 简单碰撞检测 - 根据飞机位置和建筑物位置检测碰撞
-  const planePosition = plane.position.clone();
-  
-  // 检测与加载的所有区块中的建筑物的碰撞
-  for (const chunk of Array.from(loadedChunks.values())) {
-    for (const object of chunk.children) {
-      // 只检测与建筑物的碰撞（树木可以穿过）
-      if (object.children && object.children.length > 0 && object.children[0].geometry && 
-          object.children[0].geometry.type === 'BoxGeometry' && 
-          object.children[0].geometry.parameters.height > 15) {
-        
-        const buildingBoundingBox = new THREE.Box3().setFromObject(object);
-        
-        // 飞机边界框（简化为一个点加上半径）
-        const planeRadius = 5;
-        if (planePosition.y < buildingBoundingBox.max.y && 
-            planePosition.distanceTo(object.position) < object.scale.x * 10 + planeRadius) {
-          gameOver();
-          break;
-        }
-      }
-    }
-  }
-}
-
-// 游戏结束
+// 游戏结束 - 保留但永远不会被调用
 function gameOver() {
-  gameState.crashed = true;
-  document.getElementById('info').innerText = '游戏结束! 刷新页面重新开始';
-  document.getElementById('info').style.color = 'red';
-  document.getElementById('info').style.fontSize = '24px';
+  // 游戏结束功能已被禁用
+  console.log('游戏结束功能已被禁用');
 }
 
 // 更新相机位置
@@ -586,6 +629,7 @@ function updateCamera() {
 
 // 动画循环
 let clock = new THREE.Clock(); // 添加时钟来处理动画
+const mixers = []; // 存储所有需要更新的动画混合器
 
 function animate() {
   requestAnimationFrame(animate);
@@ -593,7 +637,10 @@ function animate() {
   // 计算帧间隔时间
   const delta = clock.getDelta();
   
-  // 更新模型动画
+  // 更新所有动画混合器
+  mixers.forEach(mixer => mixer.update(delta));
+  
+  // 更新鹦鹉模型动画
   if (plane && plane.children) {
     plane.children.forEach(child => {
       if (child.userData && child.userData.mixer) {
@@ -601,6 +648,13 @@ function animate() {
       }
     });
   }
+  
+  // 更新场景中其他对象的动画（如LittlestTokyo）
+  scene.traverse((object) => {
+    if (object.userData && object.userData.mixer && !mixers.includes(object.userData.mixer)) {
+      object.userData.mixer.update(delta);
+    }
+  });
   
   updatePlane();
   updateCamera();
@@ -622,4 +676,144 @@ window.addEventListener('resize', () => {
 // 初始化区块加载
 updateChunks();
 
-animate(); 
+animate();
+
+// 添加LittlestTokyo大型地标模型
+function loadLittlestTokyoModel() {
+  console.log('=== 开始加载LittlestTokyo模型 ===');
+  console.log('当前工作目录: ' + window.location.href);
+
+  // 设置Draco加载器
+  const dracoLoader = new DRACOLoader();
+  console.log('初始化DracoLoader...');
+  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+  dracoLoader.setDecoderConfig({ type: 'js' });
+  
+  // 配置GLTF加载器使用Draco加载器
+  const loader = new GLTFLoader();
+  console.log('设置DracoLoader到GLTFLoader...');
+  loader.setDRACOLoader(dracoLoader);
+  
+  // 尝试多个路径以确保能找到模型
+  const localPath = '/models/gltf/LittlestTokyo.glb';
+  const publicPath = '/LittlestTokyo.glb';
+  const cdnPath = 'https://threejs.org/examples/models/gltf/LittlestTokyo.glb';
+  const jsDelivrPath = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/models/gltf/LittlestTokyo.glb';
+  
+  console.log('尝试加载路径 (按顺序): ', localPath, publicPath, cdnPath, jsDelivrPath);
+  
+  // 尝试所有路径
+  tryLoadModel(0);
+  
+  function tryLoadModel(pathIndex) {
+    const paths = [localPath, publicPath, cdnPath, jsDelivrPath];
+    if (pathIndex >= paths.length) {
+      console.error('所有路径尝试失败...');
+      return;
+    }
+    
+    const currentPath = paths[pathIndex];
+    console.log(`正在尝试加载路径(${pathIndex+1}/${paths.length}): ${currentPath}`);
+    
+    loader.load(currentPath, 
+      // 加载成功
+      function(gltf) {
+        console.log(`从路径成功加载: ${currentPath}`);
+        console.log('gltf对象内容: ', Object.keys(gltf));
+        console.log('scene对象内容: ', gltf.scene);
+        console.log('动画数量: ', gltf.animations ? gltf.animations.length : 0);
+        
+        // 获取模型
+        const model = gltf.scene;
+        
+        // 使用合适的位置和缩放 - 移到更明显的位置，但缩小尺寸
+        model.position.set(0, 30, -100); // 离玩家更近，并稍微抬高
+        model.scale.set(0.25, 0.25, 0.25); // 调整为原来的一半大小（0.5→0.25）
+        
+        // 旋转模型使其面向玩家
+        model.rotation.y = Math.PI;
+        
+        // 添加到文档window对象便于调试
+        window.tokyoModel = model;
+        window.gltfObject = gltf;
+        
+        console.log('模型设置完成:');
+        console.log('- 位置:', model.position);
+        console.log('- 缩放:', model.scale);
+        console.log('- 旋转:', model.rotation);
+        
+        // 设置阴影
+        let meshCount = 0;
+        model.traverse(function(node) {
+          if (node.isMesh) {
+            meshCount++;
+            node.castShadow = true;
+            node.receiveShadow = true;
+          }
+        });
+        console.log(`模型中包含${meshCount}个网格对象`);
+        
+        // 创建动画混合器并播放动画
+        if (gltf.animations && gltf.animations.length) {
+          console.log(`动画详情:`, gltf.animations.map(a => a.name || 'unnamed'));
+          
+          const mixer = new THREE.AnimationMixer(model);
+          mixer.clipAction(gltf.animations[0]).play();
+          
+          // 将mixer添加到全局mixers数组中以便更新
+          mixers.push(mixer);
+          console.log('动画混合器已创建并添加到更新列表');
+        }
+        
+        // 将模型添加到场景
+        scene.add(model);
+        console.log('模型已添加到场景');
+        
+        // 记录模型尺寸和位置便于调试
+        const box = new THREE.Box3().setFromObject(model);
+        const size = box.getSize(new THREE.Vector3());
+        console.log('模型尺寸:', size);
+        console.log('模型边界框:', box.min, box.max);
+        
+        // 移除辅助边界框、标记球和指示线
+        // const boxHelper = new THREE.Box3Helper(box, 0xff0000);
+        // scene.add(boxHelper);
+        // console.log('已添加红色边界框辅助对象');
+        
+        // const marker = new THREE.Mesh(
+        //   new THREE.SphereGeometry(10, 16, 16),
+        //   new THREE.MeshBasicMaterial({ color: 0xff0000 })
+        // );
+        // marker.position.copy(model.position);
+        // marker.position.y += 100;
+        
+        // const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        // const points = [];
+        // points.push(new THREE.Vector3(model.position.x, model.position.y + 200, model.position.z));
+        // points.push(new THREE.Vector3(model.position.x, model.position.y, model.position.z));
+        // const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+        // const line = new THREE.Line(lineGeometry, lineMaterial);
+        
+        // scene.add(marker);
+        // scene.add(line);
+        // console.log('已添加红色标记球和指示线');
+      }, 
+      // 加载进度
+      function(xhr) {
+        if (xhr.lengthComputable) {
+          const percentComplete = xhr.loaded / xhr.total * 100;
+          console.log(`加载进度 (${currentPath}): ${percentComplete.toFixed(2)}%`);
+        } else {
+          console.log(`加载中... 已加载 ${xhr.loaded} 字节`);
+        }
+      }, 
+      // 加载错误
+      function(error) {
+        console.error(`路径 ${currentPath} 加载失败:`, error);
+        console.log(`尝试下一个路径 (${pathIndex+1} -> ${pathIndex+2})`);
+        // 尝试下一个路径
+        tryLoadModel(pathIndex + 1);
+      }
+    );
+  }
+} 
