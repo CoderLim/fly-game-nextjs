@@ -42,8 +42,8 @@ export function createPlane() {
     const s = 0.35;
     model.scale.set(s, s, s);
     
-    // 调整模型方向
-    model.rotation.y = -1; // 使用与火烈鸟相同的旋转
+    // 调整模型方向 - 修正为垂直朝向屏幕
+    model.rotation.y = Math.PI; // 旋转180度，使鹦鹉面向z轴负方向
     
     // 启用阴影
     model.castShadow = true;
@@ -99,7 +99,7 @@ export function createPlane() {
       model.scale.set(s, s, s);
       
       // 调整模型方向
-      model.rotation.y = -1;
+      model.rotation.y = Math.PI; // 修正旋转，使鹦鹉面向z轴负方向
       
       // 启用阴影
       model.castShadow = true;

@@ -193,7 +193,9 @@ function updatePlane() {
   plane.position.y = gameState.altitude;
 
   // 更新螺旋桨旋转
-  propeller.rotation.z += 0.2 + gameState.speed * 0.1;
+  if (propeller) {
+    propeller.rotation.z += 0.2 + gameState.speed * 0.1;
+  }
 
   // 若飞得足够远，增加分数
   gameState.score += Math.abs(gameState.speed) * 0.1;
