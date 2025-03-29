@@ -912,7 +912,7 @@ function loadLittlestTokyoModel() {
         const model = gltf.scene;
         
         // 使用合适的位置和缩放 - 移到更明显的位置，但缩小尺寸
-        model.position.set(0, 30, -100); // 离玩家更近，并稍微抬高
+        model.position.set(200, 30, -100); // 将模型移到右侧，不挡住鹦鹉路
         model.scale.set(0.25, 0.25, 0.25); // 调整为原来的一半大小（0.5→0.25）
         
         // 旋转模型使其面向玩家
