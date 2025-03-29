@@ -13,28 +13,59 @@ const loadedChunks = new Map(); // 存储已加载的区块
 // 初始化场景
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 20000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ 
+  antialias: true,
+  powerPreference: "high-performance",
+  alpha: true
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1; // 微调曝光度，减少过度曝光
+renderer.outputEncoding = THREE.sRGBEncoding;
 document.body.appendChild(renderer.domElement);
 
+// 天空颜色
+scene.background = new THREE.Color(0x87ceeb); // 设置更自然的天空蓝
+
 // 添加环境光和平行光
-const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+const ambientLight = new THREE.AmbientLight(0x89b2eb, 0.7); // 减弱环境光
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+const directionalLight = new THREE.DirectionalLight(0xfffaf0, 1.7); // 减弱主光源
 directionalLight.position.set(100, 500, 100);
 directionalLight.castShadow = true;
-directionalLight.shadow.mapSize.width = 2048;
-directionalLight.shadow.mapSize.height = 2048;
+directionalLight.shadow.mapSize.width = 4096;
+directionalLight.shadow.mapSize.height = 4096;
 directionalLight.shadow.camera.near = 0.5;
 directionalLight.shadow.camera.far = 2000;
 directionalLight.shadow.camera.left = -1000;
 directionalLight.shadow.camera.right = 1000;
 directionalLight.shadow.camera.top = 1000;
 directionalLight.shadow.camera.bottom = -1000;
+directionalLight.shadow.bias = -0.0005;
 scene.add(directionalLight);
+
+// 添加更自然的地平线雾效，模拟大气透视
+scene.fog = new THREE.FogExp2(0x99ccff, 0.0004);
+
+// 添加飞机专用照明
+const planeSpotLight = new THREE.SpotLight(0xffffff, 1.5);
+planeSpotLight.position.set(0, 100, 0);
+planeSpotLight.angle = Math.PI / 6;
+planeSpotLight.penumbra = 0.2;
+planeSpotLight.decay = 1;
+planeSpotLight.distance = 500;
+planeSpotLight.castShadow = true;
+scene.add(planeSpotLight);
+
+// 添加鹦鹉的环绕光，让鹦鹉在任何角度都能被看到
+const planeRimLight1 = new THREE.PointLight(0x88ccff, 1, 100);
+scene.add(planeRimLight1);
+
+const planeRimLight2 = new THREE.PointLight(0xff9966, 1, 100);
+scene.add(planeRimLight2);
 
 // 天空
 const sky = createSky();
@@ -56,10 +87,10 @@ camera.lookAt(plane.position);
 const gameState = {
   speed: 0,
   score: 0,
-  acceleration: 0.1,
-  maxSpeed: 5,
-  yawSpeed: 0.02,
-  pitchSpeed: 0.02,
+  acceleration: 0.5,
+  maxSpeed: 25,
+  yawSpeed: 0.05,
+  pitchSpeed: 0.05,
   altitude: 50,
   crashed: false,
   planeRotation: {
@@ -106,29 +137,29 @@ function updatePlane() {
   } else {
     // 没有按键时慢慢减速
     if (gameState.speed > 0) {
-      gameState.speed = Math.max(gameState.speed - gameState.acceleration / 2, 0);
+      gameState.speed = Math.max(gameState.speed - gameState.acceleration / 4, 0);
     } else if (gameState.speed < 0) {
-      gameState.speed = Math.min(gameState.speed + gameState.acceleration / 2, 0);
+      gameState.speed = Math.min(gameState.speed + gameState.acceleration / 4, 0);
     }
   }
 
   // 左右移动
   if (keys.ArrowLeft) {
-    plane.position.x -= gameState.speed / 2;
+    plane.position.x -= gameState.speed / 1.5;
   }
   if (keys.ArrowRight) {
-    plane.position.x += gameState.speed / 2;
+    plane.position.x += gameState.speed / 1.5;
   }
 
   // 上升/下降
   if (keys.KeyW) {
-    gameState.altitude += 1;
-    gameState.planeRotation.x = -Math.PI / 12; // 上仰
+    gameState.altitude += 3;
+    gameState.planeRotation.x = -Math.PI / 10;
   } else if (keys.KeyS) {
-    gameState.altitude -= 1;
-    gameState.planeRotation.x = Math.PI / 12; // 下俯
+    gameState.altitude -= 3;
+    gameState.planeRotation.x = Math.PI / 10;
   } else {
-    gameState.planeRotation.x = 0; // 恢复平衡
+    gameState.planeRotation.x = 0;
   }
   
   // 限制最低高度，避免撞地
@@ -137,12 +168,12 @@ function updatePlane() {
   // 左右转向
   if (keys.KeyA) {
     gameState.planeRotation.y += gameState.yawSpeed;
-    gameState.planeRotation.z = Math.PI / 8; // 向左倾斜
+    gameState.planeRotation.z = Math.PI / 6;
   } else if (keys.KeyD) {
     gameState.planeRotation.y -= gameState.yawSpeed;
-    gameState.planeRotation.z = -Math.PI / 8; // 向右倾斜
+    gameState.planeRotation.z = -Math.PI / 6;
   } else {
-    gameState.planeRotation.z = 0; // 恢复平衡
+    gameState.planeRotation.z = 0;
   }
 
   // 应用旋转
@@ -391,19 +422,21 @@ function createTree(type = 'normal') {
 function createBuildingWithWindows(width, height, depth) {
   const buildingGroup = new THREE.Group();
   
-  // 建筑物材质
+  // 建筑物材质 - 使用更丰富的颜色组合
   const buildingMaterials = [
     new THREE.MeshPhongMaterial({ color: 0x555555, flatShading: true }), // 灰色
-    new THREE.MeshPhongMaterial({ color: 0x333333, flatShading: true }), // 深灰色
-    new THREE.MeshPhongMaterial({ color: 0x666666, flatShading: true }), // 浅灰色
-    new THREE.MeshPhongMaterial({ color: 0x225577, flatShading: true }), // 蓝灰色
-    new THREE.MeshPhongMaterial({ color: 0x775522, flatShading: true }), // 棕色
+    new THREE.MeshPhongMaterial({ color: 0x333344, flatShading: true }), // 深蓝灰色
+    new THREE.MeshPhongMaterial({ color: 0x445566, flatShading: true }), // 蓝灰色
+    new THREE.MeshPhongMaterial({ color: 0x225577, flatShading: true }), // 蓝色
+    new THREE.MeshPhongMaterial({ color: 0x664433, flatShading: true }), // 棕色
+    new THREE.MeshPhongMaterial({ color: 0x335544, flatShading: true }), // 绿灰色
   ];
   
-  // 窗户材质
+  // 窗户材质 - 更暖的光线效果
   const windowMaterial = new THREE.MeshPhongMaterial({
     color: 0xffffcc,
-    emissive: 0x444444,
+    emissive: 0xaa8866,
+    emissiveIntensity: 0.5,
     flatShading: true
   });
   
@@ -415,9 +448,9 @@ function createBuildingWithWindows(width, height, depth) {
   mainBuilding.receiveShadow = true;
   buildingGroup.add(mainBuilding);
   
-  // 添加窗户
-  const windowSize = 2;
-  const windowSpacing = 5;
+  // 添加窗户 - 调整窗户大小和间距
+  const windowSize = 1.8;
+  const windowSpacing = 4;
   
   // 计算每一面的窗户数量
   const windowsX = Math.floor(width / windowSpacing) - 1;
@@ -426,8 +459,8 @@ function createBuildingWithWindows(width, height, depth) {
   
   const windowGeometry = new THREE.BoxGeometry(windowSize, windowSize, 0.5);
   
-  // 随机决定一些窗户是否亮着
-  const windowChance = 0.7; // 70%的窗户是亮的
+  // 随机决定一些窗户是否亮着 - 增加更多亮着的窗户
+  const windowChance = 0.8; // 80%的窗户是亮的
   
   // 在x轴方向的两个面添加窗户
   for (let y = 0; y < windowsY; y++) {
@@ -521,17 +554,45 @@ function gameOver() {
 
 // 更新相机位置
 function updateCamera() {
-  // 第三人称视角，相机跟随飞机
-  const cameraOffset = new THREE.Vector3(0, 35, 80); // 提高相机位置，Y轴从15增加到35
-  const cameraPosition = plane.position.clone().add(cameraOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y));
+  // 设置相机位置更靠近鹦鹉，提供更近的视角
+  const cameraOffset = new THREE.Vector3(0, 30, 100);
+  const cameraPosition = new THREE.Vector3().copy(plane.position).add(cameraOffset);
+  camera.position.lerp(cameraPosition, 0.2); // 增加跟随速度，原来是0.1
   
-  camera.position.copy(cameraPosition);
+  // 添加轻微的相机倾斜和抖动，使视觉效果更自然
+  const time = Date.now() * 0.0003;
+  const cameraShakeAmount = 0.1; // 减少抖动量
+  camera.position.y += Math.sin(time * 1.5) * cameraShakeAmount;
+  camera.position.x += Math.sin(time * 2) * cameraShakeAmount;
+  
+  // 更新飞机专用灯光位置
+  planeSpotLight.position.copy(camera.position);
+  planeSpotLight.target = plane;
+  
+  // 更新环绕光位置 - 更靠近鹦鹉
+  planeRimLight1.position.copy(plane.position).add(new THREE.Vector3(10, 2, 0));
+  planeRimLight2.position.copy(plane.position).add(new THREE.Vector3(-10, 2, 0));
+  
   camera.lookAt(plane.position);
 }
 
 // 动画循环
+let clock = new THREE.Clock(); // 添加时钟来处理动画
+
 function animate() {
   requestAnimationFrame(animate);
+  
+  // 计算帧间隔时间
+  const delta = clock.getDelta();
+  
+  // 更新模型动画
+  if (plane && plane.children) {
+    plane.children.forEach(child => {
+      if (child.userData && child.userData.mixer) {
+        child.userData.mixer.update(delta);
+      }
+    });
+  }
   
   updatePlane();
   updateCamera();
