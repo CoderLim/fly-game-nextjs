@@ -656,6 +656,11 @@ function animate() {
     }
   });
   
+  // 更新云朵动画
+  if (window.updateClouds) {
+    window.updateClouds(delta * 100);
+  }
+  
   updatePlane();
   updateCamera();
   
