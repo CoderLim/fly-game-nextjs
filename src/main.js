@@ -136,6 +136,159 @@ window.addEventListener('keyup', (e) => {
   }
 });
 
+// 鼠标控制相关状态
+const mouseControl = {
+  isPressed: false,
+  startX: 0,
+  startY: 0,
+  moveX: 0,
+  moveY: 0,
+  totalRotationX: 0, // 累计垂直旋转角度
+  totalRotationY: 0, // 累计水平旋转角度
+  returnSpeed: 0.1, // 视角回正的速度，增加以获得更快的回正效果
+  sensitivityX: 0.003, // 水平灵敏度
+  sensitivityY: 0.002  // 垂直灵敏度
+};
+
+// 添加拖动模式提示
+function addDragModeUI() {
+  const dragModeUI = document.createElement('div');
+  dragModeUI.id = 'dragMode';
+  dragModeUI.textContent = '拖动鼠标/触摸屏可以临时调整视角';
+  dragModeUI.style.position = 'absolute';
+  dragModeUI.style.bottom = '10px';
+  dragModeUI.style.left = '50%';
+  dragModeUI.style.transform = 'translateX(-50%)';
+  dragModeUI.style.color = 'white';
+  dragModeUI.style.fontSize = '14px';
+  dragModeUI.style.padding = '5px 10px';
+  dragModeUI.style.backgroundColor = 'rgba(0,0,0,0.5)';
+  dragModeUI.style.borderRadius = '4px';
+  dragModeUI.style.opacity = '0.7';
+  dragModeUI.style.transition = 'opacity 0.3s';
+  document.body.appendChild(dragModeUI);
+  
+  // 拖动状态提示
+  const dragStateUI = document.createElement('div');
+  dragStateUI.id = 'dragState';
+  dragStateUI.textContent = '';
+  dragStateUI.style.position = 'absolute';
+  dragStateUI.style.top = '10px';
+  dragStateUI.style.left = '50%';
+  dragStateUI.style.transform = 'translateX(-50%)';
+  dragStateUI.style.color = 'white';
+  dragStateUI.style.fontSize = '16px';
+  dragStateUI.style.fontWeight = 'bold';
+  dragStateUI.style.padding = '5px 15px';
+  dragStateUI.style.backgroundColor = 'rgba(255,165,0,0.7)';
+  dragStateUI.style.borderRadius = '4px';
+  dragStateUI.style.opacity = '0';
+  dragStateUI.style.transition = 'opacity 0.3s';
+  document.body.appendChild(dragStateUI);
+  
+  return { dragModeUI, dragStateUI };
+}
+
+// 在游戏初始化时调用
+const { dragModeUI, dragStateUI } = addDragModeUI();
+
+// 监听鼠标事件
+document.addEventListener('mousedown', (e) => {
+  // 只响应左键和右键
+  if (e.button === 0 || e.button === 2) {
+    mouseControl.isPressed = true;
+    mouseControl.startX = e.clientX;
+    mouseControl.startY = e.clientY;
+    
+    // 显示拖动状态提示
+    dragStateUI.textContent = '视角调整中...';
+    dragStateUI.style.opacity = '1';
+  }
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (mouseControl.isPressed) {
+    // 计算鼠标移动距离
+    const moveX = e.clientX - mouseControl.startX;
+    const moveY = e.clientY - mouseControl.startY;
+    
+    // 根据鼠标移动增加累计旋转角度
+    mouseControl.totalRotationY += moveX * mouseControl.sensitivityX;
+    mouseControl.totalRotationX += moveY * mouseControl.sensitivityY;
+    
+    // 限制垂直旋转角度范围，防止视角过度翻转
+    mouseControl.totalRotationX = Math.max(Math.min(mouseControl.totalRotationX, Math.PI/4), -Math.PI/4);
+    
+    // 更新起始点，实现连续旋转
+    mouseControl.startX = e.clientX;
+    mouseControl.startY = e.clientY;
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  if (mouseControl.isPressed) {
+    mouseControl.isPressed = false;
+    
+    // 隐藏拖动状态提示
+    dragStateUI.textContent = '正在回到默认视角...';
+    setTimeout(() => {
+      dragStateUI.style.opacity = '0';
+    }, 1000);
+  }
+});
+
+// 禁用右键菜单
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+});
+
+// 触摸设备支持
+document.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    mouseControl.isPressed = true;
+    mouseControl.startX = e.touches[0].clientX;
+    mouseControl.startY = e.touches[0].clientY;
+    
+    // 显示拖动状态提示
+    dragStateUI.textContent = '视角调整中...';
+    dragStateUI.style.opacity = '1';
+  }
+});
+
+document.addEventListener('touchmove', (e) => {
+  if (mouseControl.isPressed && e.touches.length === 1) {
+    // 防止页面滚动
+    e.preventDefault();
+    
+    // 计算触摸移动距离
+    const moveX = e.touches[0].clientX - mouseControl.startX;
+    const moveY = e.touches[0].clientY - mouseControl.startY;
+    
+    // 根据触摸移动增加累计旋转角度
+    mouseControl.totalRotationY += moveX * mouseControl.sensitivityX;
+    mouseControl.totalRotationX += moveY * mouseControl.sensitivityY;
+    
+    // 限制垂直旋转角度范围，防止视角过度翻转
+    mouseControl.totalRotationX = Math.max(Math.min(mouseControl.totalRotationX, Math.PI/4), -Math.PI/4);
+    
+    // 更新起始点，实现连续旋转
+    mouseControl.startX = e.touches[0].clientX;
+    mouseControl.startY = e.touches[0].clientY;
+  }
+}, { passive: false });
+
+document.addEventListener('touchend', () => {
+  if (mouseControl.isPressed) {
+    mouseControl.isPressed = false;
+    
+    // 隐藏拖动状态提示
+    dragStateUI.textContent = '正在回到默认视角...';
+    setTimeout(() => {
+      dragStateUI.style.opacity = '0';
+    }, 1000);
+  }
+});
+
 // 碰撞检测 - 阻止穿透而不是结束游戏
 function detectCollisions() {
   // 保存上一帧的位置，用于碰撞后回退
@@ -605,10 +758,36 @@ function gameOver() {
 
 // 更新相机位置
 function updateCamera() {
-  // 设置相机位置更靠近鹦鹉，提供更近的视角
+  // 设置相机位置靠近飞机
   const cameraOffset = new THREE.Vector3(0, 30, 100);
-  const cameraPosition = new THREE.Vector3().copy(plane.position).add(cameraOffset);
-  camera.position.lerp(cameraPosition, 0.2); // 增加跟随速度，原来是0.1
+  
+  // 如果鼠标被按下或总旋转角度不为零
+  if (mouseControl.isPressed || Math.abs(mouseControl.totalRotationX) > 0.001 || Math.abs(mouseControl.totalRotationY) > 0.001) {
+    // 创建旋转矩阵
+    const rotationMatrix = new THREE.Matrix4();
+    rotationMatrix.makeRotationY(mouseControl.totalRotationY);
+    
+    // 应用旋转到基础偏移向量
+    const rotatedOffset = cameraOffset.clone().applyMatrix4(rotationMatrix);
+    
+    // 添加垂直旋转
+    rotatedOffset.y += 30 * Math.sin(mouseControl.totalRotationX);
+    rotatedOffset.z += 30 * Math.sin(mouseControl.totalRotationX);
+    
+    // 只有在鼠标释放后才回到默认视角
+    if (!mouseControl.isPressed) {
+      mouseControl.totalRotationX *= (1 - mouseControl.returnSpeed);
+      mouseControl.totalRotationY *= (1 - mouseControl.returnSpeed);
+    }
+    
+    // 计算新的相机位置
+    const cameraPosition = new THREE.Vector3().copy(plane.position).add(rotatedOffset);
+    camera.position.lerp(cameraPosition, 0.2);
+  } else {
+    // 默认跟随视角
+    const cameraPosition = new THREE.Vector3().copy(plane.position).add(cameraOffset);
+    camera.position.lerp(cameraPosition, 0.2);
+  }
   
   // 添加轻微的相机倾斜和抖动，使视觉效果更自然
   const time = Date.now() * 0.0003;
@@ -624,6 +803,7 @@ function updateCamera() {
   planeRimLight1.position.copy(plane.position).add(new THREE.Vector3(10, 2, 0));
   planeRimLight2.position.copy(plane.position).add(new THREE.Vector3(-10, 2, 0));
   
+  // 相机始终看向飞机
   camera.lookAt(plane.position);
 }
 
