@@ -29,12 +29,18 @@ document.body.appendChild(renderer.domElement);
 // 天空颜色
 scene.background = new THREE.Color(0x87ceeb); // 设置更自然的天空蓝
 
-// 添加环境光和平行光
-const ambientLight = new THREE.AmbientLight(0x89b2eb, 0.7); // 减弱环境光
-scene.add(ambientLight);
+// 添加半球光照明系统 - 模拟来自天空和地面的环境光
+const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 1.2);
+hemisphereLight.color.setHSL(0.6, 1, 0.6); // 天空色 - 浅蓝色
+hemisphereLight.groundColor.setHSL(0.095, 1, 0.75); // 地面色 - 绿色
+hemisphereLight.position.set(0, 50, 0);
+scene.add(hemisphereLight);
 
-const directionalLight = new THREE.DirectionalLight(0xfffaf0, 1.7); // 减弱主光源
-directionalLight.position.set(100, 500, 100);
+// 添加方向光，模拟太阳光
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+directionalLight.color.setHSL(0.1, 1, 0.95); // 太阳色 - 微黄色
+directionalLight.position.set(-1, 1.75, 1);
+directionalLight.position.multiplyScalar(30);
 directionalLight.castShadow = true;
 directionalLight.shadow.mapSize.width = 4096;
 directionalLight.shadow.mapSize.height = 4096;
@@ -51,7 +57,7 @@ scene.add(directionalLight);
 scene.fog = new THREE.FogExp2(0x99ccff, 0.0004);
 
 // 添加飞机专用照明
-const planeSpotLight = new THREE.SpotLight(0xffffff, 1.5);
+const planeSpotLight = new THREE.SpotLight(0xffffff, 1);
 planeSpotLight.position.set(0, 100, 0);
 planeSpotLight.angle = Math.PI / 6;
 planeSpotLight.penumbra = 0.2;
