@@ -113,7 +113,7 @@ const gameState = {
   maxSpeed: 125,       // 提高最大速度，从25增加到125（原来的5倍）
   yawSpeed: 0.25,      // 提高转向速度，从0.05增加到0.25（原来的5倍）
   pitchSpeed: 0.05,
-  altitude: 50,
+  altitude: 100,       // 初始高度调整为原来的2倍（从50到100）
   crashed: false,
   planeRotation: {
     x: 0,
