@@ -6,11 +6,15 @@ import { createBuildings } from './buildings.js';
 import { createSky } from './sky.js';
 import { createGround } from './ground.js';
 import { createAirObjects, updateAirObjectsChunks, updateAirObjects, getCurrentWeather, addLowAltitudeUFOs, addGermanAirships } from './airObjects.js';
+import { createHotAirBalloon, updateHotAirBalloon } from './hotAirBalloon.js';
 
 // 地图生成相关常量
 const CHUNK_SIZE = 500; // 区块大小
 const RENDER_DISTANCE = 2; // 渲染距离（区块数）
 const loadedChunks = new Map(); // 存储已加载的区块
+
+// 热气球实例数组
+const hotAirBalloons = [];
 
 // 初始化场景
 const scene = new THREE.Scene();
@@ -95,6 +99,35 @@ addLowAltitudeUFOs(5);
 
 // 添加三个德国齐柏林飞艇
 addGermanAirships();
+
+// 添加热气球
+function addHotAirBalloons() {
+  // 创建5个热气球并将它们分散在场景中
+  const balloonPositions = [
+    { x: 150, y: 100, z: -200 },   // 右前方
+    { x: -180, y: 120, z: -250 },  // 左前方
+    { x: 220, y: 150, z: 180 },    // 右后方
+    { x: -150, y: 130, z: 220 },   // 左后方
+    { x: 0, y: 180, z: -350 }      // 远前方高处
+  ];
+  
+  balloonPositions.forEach(position => {
+    const balloon = createHotAirBalloon();
+    balloon.position.set(position.x, position.y, position.z);
+    
+    // 随机旋转热气球
+    balloon.rotation.y = Math.random() * Math.PI * 2;
+    
+    // 将热气球添加到场景和数组中
+    scene.add(balloon);
+    hotAirBalloons.push(balloon);
+  });
+  
+  console.log(`已添加 ${hotAirBalloons.length} 个热气球到场景中`);
+}
+
+// 调用函数添加热气球
+addHotAirBalloons();
 
 // 首先加载LittlestTokyo模型，确保它有足够时间加载
 console.log('准备加载LittlestTokyo模型...');
@@ -865,6 +898,11 @@ function animate() {
   if (window.updateClouds) {
     window.updateClouds(delta * 100);
   }
+  
+  // 更新热气球
+  hotAirBalloons.forEach(balloon => {
+    updateHotAirBalloon(balloon, delta);
+  });
   
   // 更新飞机
   updatePlane(delta);

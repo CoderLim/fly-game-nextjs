@@ -539,19 +539,19 @@ function createUFO() {
 }
 
 // 创建德国齐柏林飞艇
-function createZeppelin() {
+function createZeppelin(customText, customColor) {
   const group = new THREE.Group();
   
-  // 随机选择文字
+  // 选择文字 - 如果有自定义文字则使用，否则随机选择
   const texts = ["Hello World", "Made In China", "Fly High", "Sky Explorer", "Cloud Rider"];
-  const selectedText = texts[Math.floor(Math.random() * texts.length)];
+  const selectedText = customText || texts[Math.floor(Math.random() * texts.length)];
   
   // 创建飞艇主体 - 更大的椭圆形
   const bodyGeometry = new THREE.CapsuleGeometry(20, 100, 64, 64); // 使用更高的细分
   
-  // 1. 首先创建基础材质
+  // 1. 首先创建基础材质 - 支持自定义颜色
   const bodyMaterial = new THREE.MeshPhongMaterial({
-    color: 0xdddddd,
+    color: customColor || 0xdddddd, // 如果有自定义颜色则使用，否则使用默认银灰色
     flatShading: false,
     metalness: 0.5,
     shininess: 100,
@@ -1121,8 +1121,14 @@ export function addGermanAirships() {
   ];
   
   heights.forEach((levelData, index) => {
-    // 创建飞艇
-    const zeppelin = createZeppelin();
+    // 创建飞艇 - 为第一个飞艇设置粉色和"大彤"文字
+    let zeppelin;
+    if (index === 0) {
+      // 粉色 - 使用粉色RGB值0xFF69B4
+      zeppelin = createZeppelin("大彤", 0xFF69B4);
+    } else {
+      zeppelin = createZeppelin();
+    }
     
     // 在玩家周围随机位置放置
     const angle = index * (Math.PI * 2 / 3); // 均匀分布在玩家周围
