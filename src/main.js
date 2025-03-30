@@ -239,11 +239,91 @@ function addDragModeUI() {
   dragStateUI.style.transition = 'opacity 0.3s';
   document.body.appendChild(dragStateUI);
   
-  return { dragModeUI, dragStateUI };
+  // 添加指南针
+  const compassContainer = document.createElement('div');
+  compassContainer.id = 'compass';
+  compassContainer.style.position = 'absolute';
+  compassContainer.style.top = '20px';
+  compassContainer.style.right = '20px';
+  compassContainer.style.width = '80px';
+  compassContainer.style.height = '80px';
+  compassContainer.style.borderRadius = '50%';
+  compassContainer.style.backgroundColor = 'rgba(0,0,0,0.5)';
+  compassContainer.style.border = '2px solid rgba(255,255,255,0.7)';
+  compassContainer.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+  compassContainer.style.display = 'flex';
+  compassContainer.style.justifyContent = 'center';
+  compassContainer.style.alignItems = 'center';
+  compassContainer.style.overflow = 'hidden';
+  document.body.appendChild(compassContainer);
+  
+  // 指南针内盘
+  const compassInner = document.createElement('div');
+  compassInner.id = 'compass-inner';
+  compassInner.style.position = 'relative';
+  compassInner.style.width = '70px';
+  compassInner.style.height = '70px';
+  compassInner.style.borderRadius = '50%';
+  compassInner.style.backgroundColor = 'rgba(0,20,40,0.6)';
+  compassContainer.appendChild(compassInner);
+  
+  // 指南针标记 - N、E、S、W
+  const directions = [
+    { text: 'N', color: '#FF5555', deg: 0 },
+    { text: 'E', color: '#FFFFFF', deg: 90 },
+    { text: 'S', color: '#FFFFFF', deg: 180 },
+    { text: 'W', color: '#FFFFFF', deg: 270 }
+  ];
+  
+  directions.forEach(dir => {
+    const marker = document.createElement('div');
+    marker.textContent = dir.text;
+    marker.style.position = 'absolute';
+    marker.style.color = dir.color;
+    marker.style.fontWeight = 'bold';
+    marker.style.fontSize = '14px';
+    marker.style.fontFamily = 'Arial, sans-serif';
+    marker.style.textAlign = 'center';
+    marker.style.width = '20px';
+    marker.style.height = '20px';
+    marker.style.transform = `rotate(${dir.deg}deg) translateY(-25px) rotate(-${dir.deg}deg)`;
+    marker.style.top = '50%';
+    marker.style.left = '50%';
+    marker.style.marginTop = '-10px';
+    marker.style.marginLeft = '-10px';
+    compassInner.appendChild(marker);
+  });
+  
+  // 指向正北的指针
+  const needle = document.createElement('div');
+  needle.id = 'compass-needle';
+  needle.style.position = 'absolute';
+  needle.style.top = '50%';
+  needle.style.left = '50%';
+  needle.style.width = '2px';
+  needle.style.height = '30px';
+  needle.style.backgroundColor = '#FF5555';
+  needle.style.transform = 'translateX(-50%) translateY(-100%)';
+  needle.style.transformOrigin = 'bottom center';
+  compassContainer.appendChild(needle);
+  
+  // 中心点
+  const center = document.createElement('div');
+  center.style.position = 'absolute';
+  center.style.top = '50%';
+  center.style.left = '50%';
+  center.style.width = '6px';
+  center.style.height = '6px';
+  center.style.backgroundColor = '#FFFFFF';
+  center.style.borderRadius = '50%';
+  center.style.transform = 'translate(-50%, -50%)';
+  compassInner.appendChild(center);
+  
+  return { dragModeUI, dragStateUI, compassInner };
 }
 
 // 在游戏初始化时调用
-const { dragModeUI, dragStateUI } = addDragModeUI();
+const { dragModeUI, dragStateUI, compassInner } = addDragModeUI();
 
 // 监听鼠标事件
 document.addEventListener('mousedown', (e) => {
@@ -1154,6 +1234,14 @@ function animate() {
   
   // 更新区块
   updateChunks();
+  
+  // 更新指南针 - 根据飞机朝向旋转
+  if (compassInner) {
+    // 获取飞机的y轴旋转角度（弧度），转换为度数
+    const planeRotationDegrees = (plane.rotation.y * 180 / Math.PI) % 360;
+    // 设置指南针内盘的旋转，负号使指南针方向与飞机朝向相反
+    compassInner.style.transform = `rotate(${-planeRotationDegrees}deg)`;
+  }
   
   // 更新空中物体并检查是否需要加载/卸载新的空中物体区块
   updateAirObjectsChunks(plane.position);
