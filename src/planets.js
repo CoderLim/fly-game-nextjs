@@ -11,26 +11,26 @@ export function createPlanets() {
   
   // 添加土星
   const saturn = createSaturn();
-  saturn.position.set(1500, 2000, -2000);
+  saturn.position.set(2500, 2800, -3000);
   saturn.scale.set(200, 200, 200);
   saturn.rotation.x = Math.PI / 6;
   planetsGroup.add(saturn);
   
   // 添加金星
   const venus = createVenus();
-  venus.position.set(-1200, 2500, -1500);
+  venus.position.set(-3000, 3200, -2000);
   venus.scale.set(150, 150, 150);
   planetsGroup.add(venus);
   
   // 添加火星
   const mars = createMars();
-  mars.position.set(800, 2200, -800);
+  mars.position.set(1500, 1800, 2500);
   mars.scale.set(100, 100, 100);
   planetsGroup.add(mars);
   
   // 添加木星
   const jupiter = createJupiter();
-  jupiter.position.set(-2000, 3000, -3000);
+  jupiter.position.set(-2500, 4000, 2000);
   jupiter.scale.set(300, 300, 300);
   jupiter.rotation.z = Math.PI / 12;
   planetsGroup.add(jupiter);
@@ -339,15 +339,15 @@ function createPlanetaryLinks(planetsGroup) {
   // 添加几条额外的装饰线
   for (let i = 0; i < 3; i++) {
     const startPoint = new THREE.Vector3(
-      (Math.random() - 0.5) * 4000,
-      2000 + Math.random() * 1000,
-      (Math.random() - 0.5) * 4000
+      (Math.random() - 0.5) * 8000,
+      2000 + Math.random() * 2000,
+      (Math.random() - 0.5) * 8000
     );
     
     const endPoint = new THREE.Vector3(
-      (Math.random() - 0.5) * 4000,
-      2000 + Math.random() * 1000,
-      (Math.random() - 0.5) * 4000
+      (Math.random() - 0.5) * 8000,
+      2000 + Math.random() * 2000,
+      (Math.random() - 0.5) * 8000
     );
     
     const points = [];
@@ -480,13 +480,13 @@ function createStarfield() {
     const star = new THREE.Mesh(brightStarGeometry, brightStarMaterial);
     
     // 随机位置
-    const distance = 3000 + Math.random() * 2000;
+    const distance = 5000 + Math.random() * 3000;
     const angle1 = Math.random() * Math.PI * 2;
     const angle2 = Math.random() * Math.PI * 2;
     
     star.position.set(
       Math.sin(angle1) * Math.cos(angle2) * distance,
-      1800 + Math.random() * 1700,
+      1800 + Math.random() * 2500,
       Math.sin(angle1) * Math.sin(angle2) * distance
     );
     
