@@ -542,60 +542,101 @@ function createUFO() {
 function createZeppelin() {
   const group = new THREE.Group();
   
-  // 飞艇主体 - 更大的椭圆形
-  const bodyGeometry = new THREE.CapsuleGeometry(20, 100, 32, 16);
+  // 随机选择文字
+  const texts = ["Hello World", "Made In China", "Fly High", "Sky Explorer", "Cloud Rider"];
+  const selectedText = texts[Math.floor(Math.random() * texts.length)];
   
-  // 德国飞艇特有的银灰色
+  // 创建飞艇主体 - 更大的椭圆形
+  const bodyGeometry = new THREE.CapsuleGeometry(20, 100, 64, 64); // 使用更高的细分
+  
+  // 1. 首先创建基础材质
   const bodyMaterial = new THREE.MeshPhongMaterial({
     color: 0xdddddd,
     flatShading: false,
     metalness: 0.5,
-    shininess: 100
+    shininess: 100,
   });
   
+  // 创建飞艇基础网格
   const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
   body.rotation.z = Math.PI / 2;
   body.castShadow = true;
   group.add(body);
   
-  // 添加德国标志 - 黑红金三色
-  const flagWidth = 30;
-  const flagHeight = 15;
+  // 2. 为文字创建单独的几何体，贴合在飞艇表面
+  // 创建两个文字贴片，一个在飞艇的每一侧
+  const createTextDecal = (side) => {
+    // 创建文字纹理
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 1024;
+    canvas.height = 256;
+    
+    // 透明背景
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 设置文字样式
+    context.font = 'Bold 90px Arial'; // 字体大小减小为原来的一半
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = '#E40000'; // 鲜红色文字
+    context.fillText(selectedText, canvas.width / 2, canvas.height / 2);
+    
+    // 创建贴花纹理
+    const textTexture = new THREE.CanvasTexture(canvas);
+    
+    // 创建贴花材质
+    const decalMaterial = new THREE.MeshBasicMaterial({
+      map: textTexture,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      side: THREE.FrontSide
+    });
+    
+    // 贴花位置
+    const position = new THREE.Vector3(0, 0, side * 20.2); // 略微位于表面之上
+    
+    // 贴花方向 - 根据侧面调整
+    const direction = new THREE.Vector3(0, 0, side);
+    
+    // 贴花尺寸，使其覆盖飞艇中部的合适区域
+    const size = new THREE.Vector3(90, 25, 1);
+    
+    // 创建用于投影的矩阵
+    const orientation = new THREE.Euler();
+    const decalGeometry = new THREE.PlaneGeometry(1, 1);
+    
+    // 调整贴花的位置和朝向
+    decalGeometry.lookAt(direction);
+    decalGeometry.translate(position.x, position.y, position.z);
+    
+    // 创建文字贴花网格
+    const decalMesh = new THREE.Mesh(decalGeometry, decalMaterial);
+    decalMesh.scale.set(size.x, size.y, size.z);
+    
+    // 使贴花稍微弯曲以适应飞艇表面
+    // 在这里我们使用修改了的圆柱形几何体
+    const curve = side * 0.05; // 调整曲率
+    for (let i = 0; i < decalGeometry.attributes.position.count; i++) {
+      const x = decalGeometry.attributes.position.getX(i);
+      const z = decalGeometry.attributes.position.getZ(i);
+      // 应用轻微的弯曲
+      decalGeometry.attributes.position.setX(i, x * (1 + curve * z));
+    }
+    decalGeometry.attributes.position.needsUpdate = true;
+    
+    return decalMesh;
+  };
   
-  // 黑色条纹
-  const blackStripeGeometry = new THREE.PlaneGeometry(flagWidth, flagHeight/3);
-  const blackStripeMaterial = new THREE.MeshPhongMaterial({
-    color: 0x000000,
-    side: THREE.DoubleSide
-  });
-  const blackStripe = new THREE.Mesh(blackStripeGeometry, blackStripeMaterial);
-  blackStripe.position.set(0, 15, 20.1);
-  blackStripe.rotation.y = Math.PI / 2;
-  blackStripe.position.y += flagHeight/3;
-  group.add(blackStripe);
+  // 添加两侧的文字贴花
+  const textLeft = createTextDecal(1);  // 左侧文字
+  const textRight = createTextDecal(-1); // 右侧文字
   
-  // 红色条纹
-  const redStripeGeometry = new THREE.PlaneGeometry(flagWidth, flagHeight/3);
-  const redStripeMaterial = new THREE.MeshPhongMaterial({
-    color: 0xDD0000,
-    side: THREE.DoubleSide
-  });
-  const redStripe = new THREE.Mesh(redStripeGeometry, redStripeMaterial);
-  redStripe.position.set(0, 15, 20.1);
-  redStripe.rotation.y = Math.PI / 2;
-  group.add(redStripe);
-  
-  // 金色条纹
-  const goldStripeGeometry = new THREE.PlaneGeometry(flagWidth, flagHeight/3);
-  const goldStripeMaterial = new THREE.MeshPhongMaterial({
-    color: 0xFFCC00,
-    side: THREE.DoubleSide
-  });
-  const goldStripe = new THREE.Mesh(goldStripeGeometry, goldStripeMaterial);
-  goldStripe.position.set(0, 15, 20.1);
-  goldStripe.rotation.y = Math.PI / 2;
-  goldStripe.position.y -= flagHeight/3;
-  group.add(goldStripe);
+  group.add(textLeft);
+  group.add(textRight);
   
   // 底部的乘客舱
   const cabinGeometry = new THREE.BoxGeometry(40, 8, 10);
@@ -1074,9 +1115,9 @@ export function addLowAltitudeUFOs(count = 5) {
 export function addGermanAirships() {
   // 设置三个不同的高度
   const heights = [
-    { height: 200, scale: 1.2, name: "低空飞艇" },
-    { height: 500, scale: 1.0, name: "中空飞艇" },
-    { height: 800, scale: 0.8, name: "高空飞艇" }
+    { height: 200, scale: 3.6, name: "低空飞艇" },   // 从1.2增加到3.6
+    { height: 500, scale: 3.0, name: "中空飞艇" },   // 从1.0增加到3.0
+    { height: 800, scale: 2.4, name: "高空飞艇" }    // 从0.8增加到2.4
   ];
   
   heights.forEach((levelData, index) => {
