@@ -137,6 +137,9 @@ loadLittlestTokyoModel();
 const { plane, propeller } = createPlane();
 scene.add(plane);
 
+// 将鹦鹉往后挪一段距离
+plane.position.z = 150; // 往后挪150单位
+
 // 设置相机初始位置
 camera.position.set(0, 50, 200);
 camera.lookAt(plane.position);

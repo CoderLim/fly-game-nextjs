@@ -47,8 +47,8 @@ function create3DText(text, parent) {
     // 文字几何体设置
     const textGeometry = new TextGeometry(text, {
       font: font,
-      size: 30,              // 字体大小
-      height: 10,            // 文字厚度
+      size: 40,              // 字体大小增加
+      height: 15,            // 文字厚度增加
       curveSegments: 12,     // 曲线分段数
       bevelEnabled: true,    // 启用斜角
       bevelThickness: 2,     // 斜角厚度
@@ -70,11 +70,11 @@ function create3DText(text, parent) {
     // 创建3D文字网格
     const textMesh = new THREE.Mesh(textGeometry, textMaterials);
     
-    // 设置文字位置 - 空中300单位，前方400单位
-    textMesh.position.set(centerOffset, 300, -400);
+    // 设置文字位置 - 更高且更远
+    textMesh.position.set(centerOffset, 500, -4000); // 从-800调整为-4000，距离增加5倍
     
     // 稍微倾斜文字使其更易于从下方看到
-    textMesh.rotation.x = -Math.PI / 10;
+    textMesh.rotation.x = -Math.PI / 12;
     
     // 添加特效 - 发光轮廓
     const textOutline = new THREE.Mesh(
@@ -97,7 +97,7 @@ function create3DText(text, parent) {
     // 添加动画效果 - 在update函数中使用
     textGroup.userData.animate = (time) => {
       // 使文字缓慢浮动
-      textGroup.position.y = Math.sin(time * 0.001) * 10;
+      textGroup.position.y = Math.sin(time * 0.001) * 15; // 增加浮动幅度
       // 使文字轻微旋转
       textGroup.rotation.y = Math.sin(time * 0.0005) * 0.2;
     };
@@ -162,8 +162,8 @@ function createWelcomeBillboard(text) {
   decor.receiveShadow = true;
   group.add(decor);
   
-  // 创建广告牌板 - 3倍大小
-  const boardGeometry = new THREE.BoxGeometry(180, 90, 6);
+  // 创建广告牌板 - 3倍大小，宽度再增加1.5倍
+  const boardGeometry = new THREE.BoxGeometry(270, 90, 6);
   const boardMaterial = new THREE.MeshPhongMaterial({ 
     color: 0xFFD700, // 金色底板
     shininess: 60,
@@ -180,8 +180,8 @@ function createWelcomeBillboard(text) {
   // 创建背面文字纹理 (相同文字)
   const backTexture = createTextTexture(text, false);
   
-  // 创建正面文字平面 - 3倍大小
-  const frontTextGeometry = new THREE.PlaneGeometry(174, 84);
+  // 创建正面文字平面 - 3倍大小，宽度再增加1.5倍
+  const frontTextGeometry = new THREE.PlaneGeometry(261, 84);
   const frontTextMaterial = new THREE.MeshBasicMaterial({
     map: frontTexture,
     transparent: true,
@@ -191,8 +191,8 @@ function createWelcomeBillboard(text) {
   const frontTextMesh = new THREE.Mesh(frontTextGeometry, frontTextMaterial);
   frontTextMesh.position.set(0, 90, 3.5); // 增加与广告牌的距离以避免Z轴冲突
   
-  // 创建背面文字平面 - 3倍大小
-  const backTextGeometry = new THREE.PlaneGeometry(174, 84);
+  // 创建背面文字平面 - 3倍大小，宽度再增加1.5倍
+  const backTextGeometry = new THREE.PlaneGeometry(261, 84);
   const backTextMaterial = new THREE.MeshBasicMaterial({
     map: backTexture,
     transparent: true,
@@ -224,11 +224,11 @@ function createWelcomeBillboard(text) {
     group.add(bulbBase);
   };
   
-  // 在四个角添加静态灯泡装饰
-  addLightBulb(-85, 3.5);
-  addLightBulb(85, 3.5);
-  addLightBulb(-85, -3.5);
-  addLightBulb(85, -3.5);
+  // 在四个角添加静态灯泡装饰 - 调整灯泡位置以匹配更宽的广告牌
+  addLightBulb(-128, 3.5);  // 左前方灯泡，从-85调整到-128
+  addLightBulb(128, 3.5);   // 右前方灯泡，从85调整到128
+  addLightBulb(-128, -3.5); // 左后方灯泡，从-85调整到-128
+  addLightBulb(128, -3.5);  // 右后方灯泡，从85调整到128
   
   // 将所有部件添加到组中
   group.add(base);
@@ -236,8 +236,10 @@ function createWelcomeBillboard(text) {
   group.add(frontTextMesh);
   group.add(backTextMesh);
   
-  // 设置广告牌位置
-  group.position.set(0, 0, -500); // 放在地面上，在初始视角前方
+  // 设置广告牌位置 - 移至左前方
+  group.position.set(-400, 0, -400); // 从(0, 0, -500)调整到(-400, 0, -400)
+  // 稍微旋转广告牌，使其更好面向玩家
+  group.rotation.y = Math.PI / 6; // 向右旋转30度，使其更好地面向初始位置的玩家
   
   return group;
 }
