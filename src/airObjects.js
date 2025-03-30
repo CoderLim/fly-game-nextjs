@@ -538,6 +538,174 @@ function createUFO() {
   return group;
 }
 
+// 创建德国齐柏林飞艇
+function createZeppelin() {
+  const group = new THREE.Group();
+  
+  // 飞艇主体 - 更大的椭圆形
+  const bodyGeometry = new THREE.CapsuleGeometry(20, 100, 32, 16);
+  
+  // 德国飞艇特有的银灰色
+  const bodyMaterial = new THREE.MeshPhongMaterial({
+    color: 0xdddddd,
+    flatShading: false,
+    metalness: 0.5,
+    shininess: 100
+  });
+  
+  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  body.rotation.z = Math.PI / 2;
+  body.castShadow = true;
+  group.add(body);
+  
+  // 添加德国标志 - 黑红金三色
+  const flagWidth = 30;
+  const flagHeight = 15;
+  
+  // 黑色条纹
+  const blackStripeGeometry = new THREE.PlaneGeometry(flagWidth, flagHeight/3);
+  const blackStripeMaterial = new THREE.MeshPhongMaterial({
+    color: 0x000000,
+    side: THREE.DoubleSide
+  });
+  const blackStripe = new THREE.Mesh(blackStripeGeometry, blackStripeMaterial);
+  blackStripe.position.set(0, 15, 20.1);
+  blackStripe.rotation.y = Math.PI / 2;
+  blackStripe.position.y += flagHeight/3;
+  group.add(blackStripe);
+  
+  // 红色条纹
+  const redStripeGeometry = new THREE.PlaneGeometry(flagWidth, flagHeight/3);
+  const redStripeMaterial = new THREE.MeshPhongMaterial({
+    color: 0xDD0000,
+    side: THREE.DoubleSide
+  });
+  const redStripe = new THREE.Mesh(redStripeGeometry, redStripeMaterial);
+  redStripe.position.set(0, 15, 20.1);
+  redStripe.rotation.y = Math.PI / 2;
+  group.add(redStripe);
+  
+  // 金色条纹
+  const goldStripeGeometry = new THREE.PlaneGeometry(flagWidth, flagHeight/3);
+  const goldStripeMaterial = new THREE.MeshPhongMaterial({
+    color: 0xFFCC00,
+    side: THREE.DoubleSide
+  });
+  const goldStripe = new THREE.Mesh(goldStripeGeometry, goldStripeMaterial);
+  goldStripe.position.set(0, 15, 20.1);
+  goldStripe.rotation.y = Math.PI / 2;
+  goldStripe.position.y -= flagHeight/3;
+  group.add(goldStripe);
+  
+  // 底部的乘客舱
+  const cabinGeometry = new THREE.BoxGeometry(40, 8, 10);
+  const cabinMaterial = new THREE.MeshPhongMaterial({
+    color: 0x333333,
+    flatShading: true
+  });
+  const cabin = new THREE.Mesh(cabinGeometry, cabinMaterial);
+  cabin.position.y = -20;
+  cabin.castShadow = true;
+  group.add(cabin);
+  
+  // 添加窗户到乘客舱
+  const windowCount = 8;
+  const windowGeometry = new THREE.PlaneGeometry(2, 3);
+  const windowMaterial = new THREE.MeshPhongMaterial({
+    color: 0xffffcc,
+    emissive: 0x888866,
+    side: THREE.DoubleSide
+  });
+  
+  for (let i = 0; i < windowCount; i++) {
+    // 左侧窗户
+    const leftWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+    leftWindow.position.set(-19.5, -20, -5 + i * 10 / (windowCount - 1));
+    leftWindow.rotation.y = Math.PI / 2;
+    group.add(leftWindow);
+    
+    // 右侧窗户
+    const rightWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+    rightWindow.position.set(-19.5, -20, 5 - i * 10 / (windowCount - 1));
+    rightWindow.rotation.y = Math.PI / 2;
+    group.add(rightWindow);
+  }
+  
+  // 添加4个引擎舱
+  const engineCount = 4;
+  const engineSpacing = 30; // 引擎之间的距离
+  
+  for (let i = 0; i < engineCount; i++) {
+    const enginePosition = -45 + i * engineSpacing;
+    
+    // 引擎舱
+    const engineHousingGeometry = new THREE.CylinderGeometry(3, 3, 8, 8);
+    const engineHousingMaterial = new THREE.MeshPhongMaterial({
+      color: 0x444444
+    });
+    const engineHousing = new THREE.Mesh(engineHousingGeometry, engineHousingMaterial);
+    engineHousing.rotation.x = Math.PI / 2;
+    engineHousing.position.set(enginePosition, -25, 0);
+    group.add(engineHousing);
+    
+    // 螺旋桨
+    const propellerGroup = new THREE.Group();
+    propellerGroup.position.set(enginePosition - 5, -25, 0);
+    
+    const hubGeometry = new THREE.SphereGeometry(1, 8, 8);
+    const hubMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+    const hub = new THREE.Mesh(hubGeometry, hubMaterial);
+    propellerGroup.add(hub);
+    
+    const bladeGeometry = new THREE.BoxGeometry(0.5, 10, 1);
+    const bladeMaterial = new THREE.MeshPhongMaterial({ color: 0x777777 });
+    
+    const blade1 = new THREE.Mesh(bladeGeometry, bladeMaterial);
+    blade1.castShadow = true;
+    propellerGroup.add(blade1);
+    
+    const blade2 = new THREE.Mesh(bladeGeometry, bladeMaterial);
+    blade2.rotation.z = Math.PI / 2;
+    blade2.castShadow = true;
+    propellerGroup.add(blade2);
+    
+    group.add(propellerGroup);
+    
+    // 引擎支架
+    const strutGeometry = new THREE.BoxGeometry(2, 10, 2);
+    const strutMaterial = new THREE.MeshPhongMaterial({
+      color: 0x555555
+    });
+    const strut = new THREE.Mesh(strutGeometry, strutMaterial);
+    strut.position.set(enginePosition, -20, 0);
+    group.add(strut);
+    
+    // 储存螺旋桨引用以便动画
+    if (!group.userData.propellers) {
+      group.userData.propellers = [];
+    }
+    group.userData.propellers.push(propellerGroup);
+  }
+  
+  // 尾翼
+  const tailFinGeometry = new THREE.BoxGeometry(15, 20, 2);
+  const tailFinMaterial = new THREE.MeshPhongMaterial({
+    color: 0xdddddd
+  });
+  const tailFin = new THREE.Mesh(tailFinGeometry, tailFinMaterial);
+  tailFin.position.set(50, 5, 0);
+  group.add(tailFin);
+  
+  // 添加飞艇特有属性
+  group.userData.type = 'zeppelin';
+  group.userData.rotationSpeed = 0.005; // 旋转速度很慢
+  group.userData.hoverAmplitude = 0.3;  // 悬浮幅度很小
+  group.userData.hoverOffset = Math.random() * Math.PI * 2;
+  group.userData.hoverSpeed = 0.005;     // 悬浮速度很慢
+  
+  return group;
+}
+
 // 修改generateAirChunk函数的对象生成逻辑，加入UFO生成的可能性
 function generateAirChunk(chunkX, chunkZ) {
   const chunkObjects = [];
@@ -759,14 +927,54 @@ export function updateAirObjects(deltaTime) {
         }
       }
     }
-    
+    // 处理齐柏林飞艇
+    else if (object.userData.type === 'zeppelin') {
+      // 缓慢旋转
+      object.rotation.y += object.userData.rotationSpeed * deltaTime;
+      
+      // 非常轻微的上下悬浮
+      object.position.y += Math.sin(
+        performance.now() * 0.001 * object.userData.hoverSpeed + object.userData.hoverOffset
+      ) * object.userData.hoverAmplitude * deltaTime;
+      
+      // 旋转螺旋桨
+      if (object.userData.propellers) {
+        object.userData.propellers.forEach(propeller => {
+          propeller.rotation.z += (0.5 + object.userData.speed * 0.1) * deltaTime * 5;
+        });
+      }
+      
+      // 缓慢改变方向
+      object.userData.timeUntilChange -= deltaTime;
+      if (object.userData.timeUntilChange <= 0) {
+        // 重置计时器
+        object.userData.timeUntilChange = object.userData.directionChangeTime;
+        
+        // 生成新的方向 - 但改变不会太剧烈
+        const currentAngle = Math.atan2(
+          object.userData.movementDirection.z,
+          object.userData.movementDirection.x
+        );
+        // 最大偏航角为30度
+        const angleChange = (Math.random() - 0.5) * Math.PI / 6;
+        const newAngle = currentAngle + angleChange;
+        
+        object.userData.movementDirection = {
+          x: Math.cos(newAngle),
+          z: Math.sin(newAngle)
+        };
+        
+        // 齐柏林飞艇速度不会有大变化
+        object.userData.speed *= 0.9 + Math.random() * 0.2; // 0.9x-1.1x速度变化
+      }
+    }
     // 对于热气球，添加轻微的上下飘动
-    if (object.userData.type === 'balloon') {
+    else if (object.userData.type === 'balloon') {
       object.position.y += Math.sin(performance.now() * 0.0005) * 0.05;
     }
     
     // 对于无人机，添加不规则运动
-    if (object.userData.type === 'drone') {
+    else if (object.userData.type === 'drone') {
       // 无人机倾斜，朝向移动方向
       const angle = Math.atan2(
         object.userData.movementDirection.x,
@@ -859,5 +1067,57 @@ export function addLowAltitudeUFOs(count = 5) {
   });
   
   console.log(`总共添加了 ${altitudeLevels.reduce((sum, level) => sum + level.count, 0)} 个UFO`);
+  return airObjects;
+}
+
+// 添加三个德国飞艇在不同高度
+export function addGermanAirships() {
+  // 设置三个不同的高度
+  const heights = [
+    { height: 200, scale: 1.2, name: "低空飞艇" },
+    { height: 500, scale: 1.0, name: "中空飞艇" },
+    { height: 800, scale: 0.8, name: "高空飞艇" }
+  ];
+  
+  heights.forEach((levelData, index) => {
+    // 创建飞艇
+    const zeppelin = createZeppelin();
+    
+    // 在玩家周围随机位置放置
+    const angle = index * (Math.PI * 2 / 3); // 均匀分布在玩家周围
+    const distance = 500 + Math.random() * 300;
+    const x = Math.cos(angle) * distance;
+    const z = Math.sin(angle) * distance;
+    
+    // 设置飞艇位置和大小
+    zeppelin.position.set(x, levelData.height, z);
+    zeppelin.scale.set(levelData.scale, levelData.scale, levelData.scale);
+    
+    // 随机旋转
+    zeppelin.rotation.y = Math.random() * Math.PI * 2;
+    
+    // 设置飞艇运动特性
+    const speedFactor = 1.0 - (index * 0.2); // 高度越高速度越慢
+    zeppelin.userData.speed = 2.0 * speedFactor;
+    zeppelin.userData.movementDirection = {
+      x: Math.cos(angle + Math.PI),
+      z: Math.sin(angle + Math.PI)
+    };
+    
+    // 方向变化时间随高度增加
+    zeppelin.userData.directionChangeTime = 30 + index * 15; // 30秒、45秒、60秒
+    zeppelin.userData.timeUntilChange = zeppelin.userData.directionChangeTime;
+    
+    // 标记名称
+    zeppelin.userData.name = levelData.name;
+    zeppelin.userData.altitude = `${levelData.height}米`;
+    
+    // 添加到空中物体组
+    airObjects.add(zeppelin);
+    
+    console.log(`添加了${levelData.name}，高度: ${levelData.height}米`);
+  });
+  
+  console.log('成功添加了三个德国齐柏林飞艇');
   return airObjects;
 } 

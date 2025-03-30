@@ -5,7 +5,7 @@ import { createPlane } from './plane.js';
 import { createBuildings } from './buildings.js';
 import { createSky } from './sky.js';
 import { createGround } from './ground.js';
-import { createAirObjects, updateAirObjectsChunks, updateAirObjects, getCurrentWeather, addLowAltitudeUFOs } from './airObjects.js';
+import { createAirObjects, updateAirObjectsChunks, updateAirObjects, getCurrentWeather, addLowAltitudeUFOs, addGermanAirships } from './airObjects.js';
 
 // 地图生成相关常量
 const CHUNK_SIZE = 500; // 区块大小
@@ -92,6 +92,9 @@ scene.add(airObjectsGroup);
 
 // 添加几个低空UFO
 addLowAltitudeUFOs(5);
+
+// 添加三个德国齐柏林飞艇
+addGermanAirships();
 
 // 首先加载LittlestTokyo模型，确保它有足够时间加载
 console.log('准备加载LittlestTokyo模型...');
