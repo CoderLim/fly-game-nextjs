@@ -485,6 +485,88 @@ function getChunkCoord(position) {
   return Math.floor(position / CHUNK_SIZE);
 }
 
+// 创建山脉
+function createMountain(size, height) {
+  // 山脉组
+  const mountainGroup = new THREE.Group();
+  
+  // 创建山体 - 使用简化的几何体表示山形
+  const segments = 32;
+  const mountainGeometry = new THREE.ConeGeometry(size, height, segments);
+  
+  // 山体材质
+  const mountainMaterial = new THREE.MeshPhongMaterial({
+    color: 0x4d5e4d,  // 山体暗绿色
+    flatShading: true,
+    shininess: 0
+  });
+  
+  // 山体主体
+  const mountain = new THREE.Mesh(mountainGeometry, mountainMaterial);
+  mountain.castShadow = true;
+  mountain.receiveShadow = true;
+  
+  // 变形山体以产生不规则形状
+  if (mountainGeometry.attributes && mountainGeometry.attributes.position) {
+    const positions = mountainGeometry.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+      // 不改变y坐标(高度)
+      if (positions[i + 1] !== height && positions[i + 1] !== 0) {
+        // 给x和z添加随机变化
+        positions[i] += (Math.random() - 0.5) * size * 0.2;
+        positions[i + 2] += (Math.random() - 0.5) * size * 0.2;
+      }
+    }
+    mountainGeometry.attributes.position.needsUpdate = true;
+    mountainGeometry.computeVertexNormals();
+  }
+  
+  // 添加主体到组中
+  mountainGroup.add(mountain);
+  
+  // 调整整体位置，使底部在y=0
+  mountainGroup.position.y = 0;
+  
+  return mountainGroup;
+}
+
+// 创建山脉链
+function createMountainRange(startX, startZ, count, direction, variance) {
+  const mountainRange = new THREE.Group();
+  
+  let currentX = startX;
+  let currentZ = startZ;
+  
+  const directionVector = new THREE.Vector2(
+    Math.cos(direction),
+    Math.sin(direction)
+  );
+  
+  // 创建一系列连续的山
+  for (let i = 0; i < count; i++) {
+    // 大小和高度有随机变化
+    const size = 100 + Math.random() * 100;
+    const height = 80 + Math.random() * 200;
+    
+    // 创建单个山
+    const mountain = createMountain(size, height);
+    
+    // 位置计算: 每座山之间有间隔，并有随机偏移
+    const spacing = size * 0.8;
+    currentX += directionVector.x * spacing + (Math.random() - 0.5) * variance;
+    currentZ += directionVector.y * spacing + (Math.random() - 0.5) * variance;
+    
+    // 设置位置和随机旋转
+    mountain.position.set(currentX, 0, currentZ);
+    mountain.rotation.y = Math.random() * Math.PI * 2;
+    
+    // 添加到山脉链
+    mountainRange.add(mountain);
+  }
+  
+  return mountainRange;
+}
+
 // 加载区块
 function loadChunk(chunkX, chunkZ) {
   const chunkKey = `${chunkX},${chunkZ}`;
@@ -497,13 +579,91 @@ function loadChunk(chunkX, chunkZ) {
   // 创建新区块
   const chunk = new THREE.Group();
   
-  // 创建建筑
-  const buildingCount = Math.floor(Math.random() * 3); // 每个区块0-2个建筑，减少为原来的1/10
+  // 定义城市核心区域 (-2 <= x <= 2 && -2 <= z <= 2)
+  const isCityCore = Math.abs(chunkX) <= 2 && Math.abs(chunkZ) <= 2;
+  
+  // 定义山脉区域 - 在城市核心外围
+  const isMountainRegion = !isCityCore && (
+    // 西部山脉 (x < -3)
+    chunkX < -3 ||
+    // 东部山脉 (x > 3)
+    chunkX > 3 ||
+    // 北部山脉 (z < -3)
+    chunkZ < -3 ||
+    // 南部山脉 (z > 3)
+    chunkZ > 3
+  );
+  
+  // 在山脉区域添加山脉
+  if (isMountainRegion) {
+    // 每个区块添加不同密度的山脉
+    const mountainDensity = 0.7; // 较高的山脉密度
+    
+    if (Math.random() < mountainDensity) {
+      // 确定山脉方向 - 根据区域决定
+      let direction;
+      
+      if (chunkX < -3) { // 西部山脉
+        direction = Math.PI / 2; // 南北走向
+      } else if (chunkX > 3) { // 东部山脉
+        direction = Math.PI / 2; // 南北走向
+      } else if (chunkZ < -3) { // 北部山脉
+        direction = 0; // 东西走向
+      } else { // 南部山脉
+        direction = 0; // 东西走向
+      }
+      
+      // 在区块边缘角落生成高山脉
+      if ((Math.abs(chunkX) > 4 && Math.abs(chunkZ) > 4) && Math.random() < 0.8) {
+        // 角落区域生成更高的山峰
+        const startX = chunkX * CHUNK_SIZE + Math.random() * CHUNK_SIZE * 0.5;
+        const startZ = chunkZ * CHUNK_SIZE + Math.random() * CHUNK_SIZE * 0.5;
+        
+        // 创建一座高大独立山峰
+        const size = 150 + Math.random() * 100;
+        const height = 200 + Math.random() * 300;
+        const mountain = createMountain(size, height);
+        mountain.position.set(startX, 0, startZ);
+        mountain.rotation.y = Math.random() * Math.PI * 2;
+        chunk.add(mountain);
+      }
+      
+      // 随机化方向
+      direction += (Math.random() - 0.5) * Math.PI / 4;
+      
+      // 确定山脉起始位置
+      const startX = chunkX * CHUNK_SIZE + Math.random() * CHUNK_SIZE * 0.5;
+      const startZ = chunkZ * CHUNK_SIZE + Math.random() * CHUNK_SIZE * 0.5;
+      
+      // 为区块创建2-6座山的山脉
+      const mountainCount = 2 + Math.floor(Math.random() * 4);
+      const variance = 50; // 位置随机变化量
+      
+      const mountains = createMountainRange(startX, startZ, mountainCount, direction, variance);
+      chunk.add(mountains);
+    }
+  }
+  
+  // 创建建筑 - 在城市区域增加建筑数量，山区减少建筑
+  let buildingCount;
+  
+  if (isCityCore) {
+    // 城市核心区域 - 较多建筑
+    buildingCount = 2 + Math.floor(Math.random() * 3); // 每个区块2-4个建筑
+  } else if (isMountainRegion) {
+    // 山区 - 几乎没有建筑
+    buildingCount = (Math.random() < 0.2) ? 1 : 0; // 20%概率有1个建筑
+  } else {
+    // 过渡区域 - 少量建筑
+    buildingCount = Math.floor(Math.random() * 2); // 每个区块0-1个建筑
+  }
   
   for (let i = 0; i < buildingCount; i++) {
-    // 随机建筑物尺寸
+    // 随机建筑物尺寸 - 城市核心区域有更高的建筑
     const width = 10 + Math.random() * 20;
-    const height = 20 + Math.random() * 180; // 摩天大楼，高度从20到200不等
+    const height = isCityCore ? 
+                  50 + Math.random() * 200 : // 城市区域更高的建筑(50-250)
+                  20 + Math.random() * 40;   // 周边区域较矮的建筑(20-60)
     const depth = 10 + Math.random() * 20;
     
     // 随机位置（在区块内）
@@ -520,22 +680,74 @@ function loadChunk(chunkX, chunkZ) {
     chunk.add(building);
   }
   
-  // 创建树木
-  const treeCount = 10 + Math.floor(Math.random() * 30); // 每个区块10-40棵树
+  // 创建树木 - 在城市区域减少树木，山区增加树木
+  let treeMultiplier;
+  let treeTypeDistribution;
+  
+  if (isCityCore) {
+    // 城市区域较少树木
+    treeMultiplier = 0.5;
+    // 城市区域以普通树和棕榈树为主
+    treeTypeDistribution = {
+      normal: 0.6,
+      palm: 0.3,
+      pine: 0.1
+    };
+  } else if (isMountainRegion) {
+    // 山区更多树木
+    treeMultiplier = 3.0;
+    // 山区主要是松树和普通树
+    treeTypeDistribution = {
+      pine: 0.7,
+      normal: 0.3,
+      palm: 0
+    };
+  } else {
+    // 过渡区域适中数量的树木
+    treeMultiplier = 1.5;
+    // 过渡区域混合树种
+    treeTypeDistribution = {
+      normal: 0.5,
+      pine: 0.3,
+      palm: 0.2
+    };
+  }
+  
+  const treeCount = Math.floor((10 + Math.floor(Math.random() * 20)) * treeMultiplier);
   
   for (let i = 0; i < treeCount; i++) {
-    // 创建树木
-    const treeType = Math.random() < 0.7 ? 'normal' : (Math.random() < 0.5 ? 'pine' : 'palm');
+    // 根据区域选择不同类型的树
+    const treeTypeRandom = Math.random();
+    let treeType;
+    
+    if (treeTypeRandom < treeTypeDistribution.normal) {
+      treeType = 'normal';
+    } else if (treeTypeRandom < treeTypeDistribution.normal + treeTypeDistribution.pine) {
+      treeType = 'pine';
+    } else {
+      treeType = 'palm';
+    }
+    
     const tree = createTree(treeType);
     
     // 随机位置（在区块内）
     const x = chunkX * CHUNK_SIZE + Math.random() * CHUNK_SIZE;
     const z = chunkZ * CHUNK_SIZE + Math.random() * CHUNK_SIZE;
     
-    // 随机大小
-    const scale = 0.5 + Math.random() * 1.5;
-    tree.scale.set(scale, scale, scale);
+    // 随机大小 - 根据区域调整
+    let scale;
+    if (isMountainRegion) {
+      // 山区树木更小更密集
+      scale = 0.4 + Math.random() * 0.8;
+    } else if (isCityCore) {
+      // 城市区域树木较小，整齐
+      scale = 0.6 + Math.random() * 0.6;
+    } else {
+      // 过渡区域树木大小适中
+      scale = 0.5 + Math.random() * 1.0;
+    }
     
+    tree.scale.set(scale, scale, scale);
     tree.position.set(x, 0, z);
     chunk.add(tree);
   }
