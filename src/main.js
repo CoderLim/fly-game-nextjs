@@ -7,6 +7,7 @@ import { createSky } from './sky.js';
 import { createGround } from './ground.js';
 import { createAirObjects, updateAirObjectsChunks, updateAirObjects, getCurrentWeather, addLowAltitudeUFOs, addGermanAirships } from './airObjects.js';
 import { createHotAirBalloon, updateHotAirBalloon } from './hotAirBalloon.js';
+import { createPlanets, updatePlanets } from './planets.js';
 
 // 地图生成相关常量
 const CHUNK_SIZE = 500; // 区块大小
@@ -89,6 +90,11 @@ scene.add(sky);
 // 地面
 const ground = createGround();
 scene.add(ground);
+
+// 添加行星系统
+const planets = createPlanets();
+scene.add(planets);
+window.planets = planets; // 添加到全局对象以便更新函数访问
 
 // 在初始化场景时，添加空中物体
 const airObjectsGroup = createAirObjects();
@@ -1287,6 +1293,9 @@ function animate() {
   // 更新空中物体并检查是否需要加载/卸载新的空中物体区块
   updateAirObjectsChunks(plane.position);
   updateAirObjects(delta);
+  
+  // 更新行星
+  updatePlanets(delta);
   
   // 渲染场景
   renderer.render(scene, camera);
