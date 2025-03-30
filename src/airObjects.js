@@ -1037,9 +1037,9 @@ export function updateAirObjects(deltaTime) {
 export function addLowAltitudeUFOs(count = 5) {
   // 设置不同高度范围的UFO
   const altitudeLevels = [
-    { min: 30, max: 80, name: '低空', scale: 0.6, count: count },        // 低空
-    { min: 150, max: 250, name: '中空', scale: 0.8, count: count - 2 },  // 中空
-    { min: 400, max: 600, name: '高空', scale: 1.0, count: count - 3 }   // 高空
+    { min: 30, max: 80, name: '低空', scale: 3.0, count: Math.max(1, Math.floor(count)) },          // 低空确保至少有1个UFO
+    { min: 150, max: 250, name: '中空', scale: 4.0, count: Math.max(1, Math.floor(count * 0.5)) },  // 中空确保至少有1个UFO
+    { min: 400, max: 600, name: '高空', scale: 5.0, count: Math.max(1, Math.floor(count * 0.3)) }   // 高空确保至少有1个UFO
   ];
   
   // 在各个高度添加UFO

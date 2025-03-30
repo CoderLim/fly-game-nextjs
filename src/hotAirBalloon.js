@@ -31,6 +31,9 @@ export function createHotAirBalloon() {
     basketOriginalRotation: 0
   };
 
+  // 将整个热气球放大到原来的10倍
+  group.scale.set(10, 10, 10);
+
   return group;
 }
 

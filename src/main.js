@@ -95,7 +95,7 @@ const airObjectsGroup = createAirObjects();
 scene.add(airObjectsGroup);
 
 // 添加几个低空UFO
-addLowAltitudeUFOs(5);
+addLowAltitudeUFOs(2); // 将原来的5个减少到2个（约为1/3的密度）
 
 // 添加三个德国齐柏林飞艇
 addGermanAirships();
@@ -104,11 +104,11 @@ addGermanAirships();
 function addHotAirBalloons() {
   // 创建5个热气球并将它们分散在场景中
   const balloonPositions = [
-    { x: 150, y: 100, z: -200 },   // 右前方
-    { x: -180, y: 120, z: -250 },  // 左前方
-    { x: 220, y: 150, z: 180 },    // 右后方
-    { x: -150, y: 130, z: 220 },   // 左后方
-    { x: 0, y: 180, z: -350 }      // 远前方高处
+    { x: 1000, y: 300, z: -1200 },   // 右前方
+    { x: -1100, y: 350, z: -1400 },  // 左前方
+    { x: 1200, y: 400, z: 1000 },    // 右后方
+    { x: -1000, y: 370, z: 1300 },   // 左后方
+    { x: 0, y: 500, z: -1800 }      // 远前方高处
   ];
   
   balloonPositions.forEach(position => {
