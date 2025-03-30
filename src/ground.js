@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 
 export function createGround() {
   // 创建一个大型平面作为地面
@@ -27,7 +29,81 @@ export function createGround() {
   const billboard = createWelcomeBillboard("Welcome XX");
   ground.add(billboard);
   
+  // 添加空中立体文字
+  create3DText("Hello World", ground);
+  
   return ground;
+}
+
+// 创建空中3D立体文字
+function create3DText(text, parent) {
+  // 创建一个临时的对象作为文字的容器
+  const textGroup = new THREE.Group();
+  parent.add(textGroup);
+  
+  // 异步加载字体
+  const loader = new FontLoader();
+  loader.load('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json', function(font) {
+    // 文字几何体设置
+    const textGeometry = new TextGeometry(text, {
+      font: font,
+      size: 30,              // 字体大小
+      height: 10,            // 文字厚度
+      curveSegments: 12,     // 曲线分段数
+      bevelEnabled: true,    // 启用斜角
+      bevelThickness: 2,     // 斜角厚度
+      bevelSize: 1.5,        // 斜角大小
+      bevelOffset: 0,        // 斜角偏移
+      bevelSegments: 5       // 斜角分段数
+    });
+    
+    // 计算几何体中心并调整位置
+    textGeometry.computeBoundingBox();
+    const centerOffset = -(textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x) / 2;
+    
+    // 创建彩虹渐变材质
+    const textMaterials = [
+      new THREE.MeshPhongMaterial({ color: 0xff5555, shininess: 100, specular: 0xffffff }), // 红色面
+      new THREE.MeshPhongMaterial({ color: 0xffdd55, shininess: 100, specular: 0xffffff })  // 金色边
+    ];
+    
+    // 创建3D文字网格
+    const textMesh = new THREE.Mesh(textGeometry, textMaterials);
+    
+    // 设置文字位置 - 空中300单位，前方400单位
+    textMesh.position.set(centerOffset, 300, -400);
+    
+    // 稍微倾斜文字使其更易于从下方看到
+    textMesh.rotation.x = -Math.PI / 10;
+    
+    // 添加特效 - 发光轮廓
+    const textOutline = new THREE.Mesh(
+      textGeometry.clone(),
+      new THREE.MeshBasicMaterial({ 
+        color: 0x0088ff,
+        transparent: true,
+        opacity: 0.5,
+        wireframe: true
+      })
+    );
+    textOutline.position.copy(textMesh.position);
+    textOutline.rotation.copy(textMesh.rotation);
+    textOutline.scale.multiplyScalar(1.02);
+    
+    // 添加到场景
+    textGroup.add(textMesh);
+    textGroup.add(textOutline);
+    
+    // 添加动画效果 - 在update函数中使用
+    textGroup.userData.animate = (time) => {
+      // 使文字缓慢浮动
+      textGroup.position.y = Math.sin(time * 0.001) * 10;
+      // 使文字轻微旋转
+      textGroup.rotation.y = Math.sin(time * 0.0005) * 0.2;
+    };
+  });
+  
+  return textGroup;
 }
 
 // 创建网格纹理

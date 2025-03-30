@@ -810,7 +810,7 @@ function updateCamera(delta) {
   
   // 如果鼠标被按下或总旋转角度不为零
   if (mouseControl.isPressed || Math.abs(mouseControl.totalRotationX) > 0.001 || Math.abs(mouseControl.totalRotationY) > 0.001) {
-    // 创建旋转矩阵
+    // 创建旋转矩阵 - 处理水平旋转
     const rotationMatrix = new THREE.Matrix4();
     rotationMatrix.makeRotationY(mouseControl.totalRotationY);
     
@@ -819,11 +819,22 @@ function updateCamera(delta) {
     rotatedOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y);
     rotatedOffset.applyMatrix4(rotationMatrix);
     
-    // 添加垂直旋转
-    const verticalAxis = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y);
-    const upVector = new THREE.Vector3(0, 1, 0);
-    rotatedOffset.add(new THREE.Vector3().crossVectors(upVector, planeDirection).normalize().multiplyScalar(20 * Math.sin(mouseControl.totalRotationX)));
-    rotatedOffset.y += 20 * Math.sin(mouseControl.totalRotationX);
+    // 增强垂直旋转效果
+    const verticalAngle = mouseControl.totalRotationX;
+    
+    // 计算垂直旋转高度变化 - 更大的变化范围
+    const heightChange = 40 * Math.sin(verticalAngle);
+    rotatedOffset.y += heightChange;
+    
+    // 计算垂直旋转前后变化 - 拉近和拉远相机
+    const distanceChange = 30 * Math.sin(verticalAngle);
+    rotatedOffset.z -= distanceChange;
+    
+    // 添加水平旋转时的侧倾效果
+    if (Math.abs(mouseControl.totalRotationY) > 0.1) {
+      const tiltAmount = 10 * Math.sin(mouseControl.totalRotationY);
+      rotatedOffset.x += tiltAmount;
+    }
     
     // 只有在鼠标释放后才回到默认视角
     if (!mouseControl.isPressed) {
@@ -835,9 +846,22 @@ function updateCamera(delta) {
     const cameraPosition = new THREE.Vector3().copy(plane.position).add(rotatedOffset);
     camera.position.lerp(cameraPosition, 0.2);
     
-    // 计算一个前方的观察点
-    const lookAtPoint = new THREE.Vector3().copy(plane.position).addScaledVector(planeDirection, 30);
+    // 计算一个前方的观察点 - 调整观察点高度以匹配垂直旋转
+    const lookAtPoint = new THREE.Vector3().copy(plane.position);
+    lookAtPoint.y += 15 * Math.sin(verticalAngle); // 上下看时调整观察点高度
+    lookAtPoint.addScaledVector(planeDirection, 30);
     camera.lookAt(lookAtPoint);
+    
+    // 更新UI提示
+    if (dragStateUI) {
+      if (Math.abs(verticalAngle) > 0.1) {
+        dragStateUI.textContent = verticalAngle > 0 ? '视角向下 ▼' : '视角向上 ▲';
+      } else if (Math.abs(mouseControl.totalRotationY) > 0.1) {
+        dragStateUI.textContent = mouseControl.totalRotationY > 0 ? '视角向右 ►' : '视角向左 ◄';
+      } else {
+        dragStateUI.textContent = '视角调整中...';
+      }
+    }
   } else {
     // 默认跟随视角 - 相机位置跟随飞机朝向
     const rotatedOffset = cameraOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y);
