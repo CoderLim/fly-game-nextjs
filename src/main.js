@@ -1183,6 +1183,40 @@ function updateCamera(delta) {
   planeRimLight2.position.copy(plane.position).add(new THREE.Vector3(-10, 2, 0));
 }
 
+// 获取仪表盘元素
+const dashboardElements = {
+  altitude: document.getElementById('altitude'),
+  speed: document.getElementById('speed'),
+  heading: document.getElementById('heading'),
+  coordinates: document.getElementById('coordinates')
+};
+
+// 更新仪表盘
+function updateDashboard() {
+  if (!dashboardElements.altitude || !plane) return;
+  
+  // 更新高度
+  dashboardElements.altitude.textContent = `${Math.round(gameState.altitude)} m`;
+  
+  // 如果高度过低，添加警告
+  if (gameState.altitude < 30) {
+    dashboardElements.altitude.classList.add('warning');
+  } else {
+    dashboardElements.altitude.classList.remove('warning');
+  }
+  
+  // 更新速度 (km/h)
+  const speedKmh = Math.abs(gameState.speed) * 18; // 假设游戏单位速度的18倍为km/h
+  dashboardElements.speed.textContent = `${Math.round(speedKmh)} km/h`;
+  
+  // 更新方向 (将弧度转换为角度)
+  const headingDegrees = ((plane.rotation.y * 180 / Math.PI) % 360 + 360) % 360;
+  dashboardElements.heading.textContent = `${Math.round(headingDegrees)}°`;
+  
+  // 更新坐标
+  dashboardElements.coordinates.textContent = `X: ${Math.round(plane.position.x)}, Z: ${Math.round(plane.position.z)}`;
+}
+
 // 动画循环
 let clock = new THREE.Clock(); // 添加时钟来处理动画
 
@@ -1222,6 +1256,13 @@ function animate() {
   hotAirBalloons.forEach(balloon => {
     updateHotAirBalloon(balloon, delta);
   });
+  
+  // 更新仪表盘
+  try {
+    updateDashboard();
+  } catch (error) {
+    console.error("更新UI时出错:", error);
+  }
   
   // 更新飞机
   updatePlane(delta);
@@ -1405,4 +1446,16 @@ function loadLittlestTokyoModel() {
       }
     );
   }
-} 
+}
+
+// 检查纹理是否已加载
+const checkTextureLoaded = () => {
+  // 检查并获取仪表盘元素
+  Object.keys(dashboardElements).forEach(key => {
+    if (!dashboardElements[key]) {
+      dashboardElements[key] = document.getElementById(key);
+    }
+  });
+  
+  console.log("仪表盘初始化完成");
+}; 

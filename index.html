@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3D Flying Game</title>
+  <!-- 预加载海洋贴图 -->
+  <link rel="preload" href="textures/ocean/normalMap1.jpg" as="image">
+  <link rel="preload" href="textures/ocean/normalMap2.jpg" as="image">
   <style>
     body {
       margin: 0;
@@ -28,11 +31,169 @@
       font-size: 24px;
       pointer-events: none;
     }
+    #ocean-indicator {
+      position: absolute;
+      bottom: 50px;
+      left: 20px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background-color: rgba(0, 50, 80, 0.6);
+      border: 2px solid #0094ff;
+      display: none; /* 初始隐藏，等待JavaScript确认资源加载后再显示 */
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-family: Arial, sans-serif;
+      box-shadow: 0 0 10px rgba(0, 150, 255, 0.5);
+    }
+    #ocean-indicator-arrow {
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-bottom: 40px solid #00ffff;
+      position: absolute;
+      transform-origin: center bottom;
+    }
+    #ocean-distance {
+      margin-top: 60px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #00ffff;
+    }
+    #ocean-label {
+      margin-top: 5px;
+      font-size: 14px;
+    }
+    
+    /* 仪表盘样式 */
+    #dashboard {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 250px;
+      background-color: rgba(0, 0, 0, 0.7);
+      border: 2px solid #444;
+      border-radius: 10px;
+      padding: 15px;
+      color: white;
+      font-family: 'Courier New', monospace;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    }
+    
+    .dashboard-title {
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #555;
+      color: #00ffff;
+    }
+    
+    .dashboard-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0;
+      font-size: 14px;
+    }
+    
+    .dashboard-label {
+      color: #aaa;
+    }
+    
+    .dashboard-value {
+      font-weight: bold;
+      color: #0f0;
+      text-align: right;
+    }
+    
+    .altitude-value {
+      color: #ffcc00;
+    }
+    
+    .speed-value {
+      color: #00ffcc;
+    }
+    
+    .heading-value {
+      color: #ff9966;
+    }
+    
+    .coordinates-value {
+      color: #99ccff;
+      font-size: 12px;
+    }
+    
+    .ocean-distance-value {
+      color: #00ffff;
+    }
+    
+    /* 仪表盘分割线 */
+    .dashboard-divider {
+      height: 1px;
+      background-color: #555;
+      margin: 10px 0;
+    }
+    
+    /* 警告指示器 */
+    .warning {
+      color: #ff3333 !important;
+      animation: blink 1s infinite;
+    }
+    
+    @keyframes blink {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
   </style>
 </head>
 <body>
-  <div id="info">W/S - 上升/下降, A/D - 左转/右转, 方向键 - 前后左右移动</div>
+  <div id="info">W/S - 上升/下降, A/D - 左转/右转, 方向键 - 前进/后退, 按住鼠标拖动可向后看海洋</div>
   <div id="score">Score: 0</div>
+  
+  <!-- 海洋指示器 -->
+  <div id="ocean-indicator">
+    <div id="ocean-indicator-arrow"></div>
+    <div id="ocean-distance">0m</div>
+    <div id="ocean-label">海洋距离</div>
+  </div>
+  
+  <!-- 仪表盘 -->
+  <div id="dashboard">
+    <div class="dashboard-title">飞行仪表盘</div>
+    
+    <div class="dashboard-row">
+      <span class="dashboard-label">高度:</span>
+      <span id="altitude" class="dashboard-value altitude-value">0 m</span>
+    </div>
+    
+    <div class="dashboard-row">
+      <span class="dashboard-label">速度:</span>
+      <span id="speed" class="dashboard-value speed-value">0 km/h</span>
+    </div>
+    
+    <div class="dashboard-row">
+      <span class="dashboard-label">方向:</span>
+      <span id="heading" class="dashboard-value heading-value">0°</span>
+    </div>
+    
+    <div class="dashboard-divider"></div>
+    
+    <div class="dashboard-row">
+      <span class="dashboard-label">坐标:</span>
+      <span id="coordinates" class="dashboard-value coordinates-value">X: 0, Z: 0</span>
+    </div>
+    
+    <div class="dashboard-row">
+      <span class="dashboard-label">海洋距离:</span>
+      <span id="ocean-dist" class="dashboard-value ocean-distance-value">0 m</span>
+    </div>
+  </div>
+  
   <script type="module" src="/src/main.js"></script>
 </body>
 </html> 
