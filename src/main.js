@@ -5,7 +5,7 @@ import { createPlane } from './plane.js';
 import { createBuildings } from './buildings.js';
 import { createSky } from './sky.js';
 import { createGround } from './ground.js';
-import { createAirObjects, updateAirObjectsChunks, updateAirObjects, getCurrentWeather } from './airObjects.js';
+import { createAirObjects, updateAirObjectsChunks, updateAirObjects, getCurrentWeather, addLowAltitudeUFOs } from './airObjects.js';
 
 // 地图生成相关常量
 const CHUNK_SIZE = 500; // 区块大小
@@ -90,6 +90,9 @@ scene.add(ground);
 const airObjectsGroup = createAirObjects();
 scene.add(airObjectsGroup);
 
+// 添加几个低空UFO
+addLowAltitudeUFOs(5);
+
 // 首先加载LittlestTokyo模型，确保它有足够时间加载
 console.log('准备加载LittlestTokyo模型...');
 loadLittlestTokyoModel();
@@ -108,7 +111,7 @@ const gameState = {
   score: 0,
   acceleration: 25.0,  // 提高加速度，从5.0增加到25.0（原来的5倍）
   maxSpeed: 125,       // 提高最大速度，从25增加到125（原来的5倍）
-  yawSpeed: 0.05,
+  yawSpeed: 0.25,      // 提高转向速度，从0.05增加到0.25（原来的5倍）
   pitchSpeed: 0.05,
   altitude: 50,
   crashed: false,
@@ -385,20 +388,14 @@ function updatePlane(delta) {
     }
   }
 
-  // 左右移动
-  if (keys.ArrowLeft) {
-    plane.position.x -= gameState.speed * delta * 3.0;
-  }
-  if (keys.ArrowRight) {
-    plane.position.x += gameState.speed * delta * 3.0;
-  }
+  // 左右移动 - 已禁用
 
   // 上升/下降
   if (keys.KeyW) {
-    gameState.altitude += 15 * delta;
+    gameState.altitude += 45 * delta;
     gameState.planeRotation.x = -Math.PI / 10 * delta;
   } else if (keys.KeyS) {
-    gameState.altitude -= 15 * delta;
+    gameState.altitude -= 45 * delta;
     gameState.planeRotation.x = Math.PI / 10 * delta;
   } else {
     gameState.planeRotation.x = 0;
@@ -769,21 +766,28 @@ function gameOver() {
 
 // 更新相机位置
 function updateCamera(delta) {
-  // 设置相机位置靠近飞机
-  const cameraOffset = new THREE.Vector3(0, 30, 100);
+  // 获取飞机的朝向（基于飞机的旋转）
+  const planeDirection = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y);
+  
+  // 设置相机偏移量（在飞机后方和上方）
+  const cameraOffset = new THREE.Vector3(0, 30, 80);
   
   // 如果鼠标被按下或总旋转角度不为零
   if (mouseControl.isPressed || Math.abs(mouseControl.totalRotationX) > 0.001 || Math.abs(mouseControl.totalRotationY) > 0.001) {
     // 创建旋转矩阵
     const rotationMatrix = new THREE.Matrix4();
-    rotationMatrix.makeRotationY(mouseControl.totalRotationY * delta);
+    rotationMatrix.makeRotationY(mouseControl.totalRotationY);
     
-    // 应用旋转到基础偏移向量
-    const rotatedOffset = cameraOffset.clone().applyMatrix4(rotationMatrix);
+    // 应用旋转到基础偏移向量（先应用飞机旋转，再应用鼠标旋转）
+    const rotatedOffset = cameraOffset.clone();
+    rotatedOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y);
+    rotatedOffset.applyMatrix4(rotationMatrix);
     
     // 添加垂直旋转
-    rotatedOffset.y += 30 * Math.sin(mouseControl.totalRotationX * delta);
-    rotatedOffset.z += 30 * Math.sin(mouseControl.totalRotationX * delta);
+    const verticalAxis = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y);
+    const upVector = new THREE.Vector3(0, 1, 0);
+    rotatedOffset.add(new THREE.Vector3().crossVectors(upVector, planeDirection).normalize().multiplyScalar(20 * Math.sin(mouseControl.totalRotationX)));
+    rotatedOffset.y += 20 * Math.sin(mouseControl.totalRotationX);
     
     // 只有在鼠标释放后才回到默认视角
     if (!mouseControl.isPressed) {
@@ -794,10 +798,19 @@ function updateCamera(delta) {
     // 计算新的相机位置
     const cameraPosition = new THREE.Vector3().copy(plane.position).add(rotatedOffset);
     camera.position.lerp(cameraPosition, 0.2);
+    
+    // 计算一个前方的观察点
+    const lookAtPoint = new THREE.Vector3().copy(plane.position).addScaledVector(planeDirection, 30);
+    camera.lookAt(lookAtPoint);
   } else {
-    // 默认跟随视角
-    const cameraPosition = new THREE.Vector3().copy(plane.position).add(cameraOffset);
+    // 默认跟随视角 - 相机位置跟随飞机朝向
+    const rotatedOffset = cameraOffset.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), plane.rotation.y);
+    const cameraPosition = new THREE.Vector3().copy(plane.position).add(rotatedOffset);
     camera.position.lerp(cameraPosition, 0.2);
+    
+    // 相机看向与飞机相同的方向（而不是看向飞机）
+    const lookAtPoint = new THREE.Vector3().copy(plane.position).addScaledVector(planeDirection, 30);
+    camera.lookAt(lookAtPoint);
   }
   
   // 添加轻微的相机倾斜和抖动，使视觉效果更自然
@@ -813,9 +826,6 @@ function updateCamera(delta) {
   // 更新环绕光位置 - 更靠近鹦鹉
   planeRimLight1.position.copy(plane.position).add(new THREE.Vector3(10, 2, 0));
   planeRimLight2.position.copy(plane.position).add(new THREE.Vector3(-10, 2, 0));
-  
-  // 相机始终看向飞机
-  camera.lookAt(plane.position);
 }
 
 // 动画循环

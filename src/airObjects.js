@@ -782,4 +782,64 @@ export function updateAirObjects(deltaTime) {
   });
   
   return airObjects;
+}
+
+// 在低空添加UFO
+export function addLowAltitudeUFOs(count = 5) {
+  // 设置低空UFO的高度范围
+  const lowAltitude = { min: 30, max: 80 }; // 比普通UFO低得多
+  
+  // 创建UFO并添加到场景中
+  for (let i = 0; i < count; i++) {
+    const ufo = createUFO();
+    
+    // 随机位置 - 在玩家周围的区域生成
+    const offsetX = (Math.random() - 0.5) * AIR_CHUNK_SIZE * 2;
+    const offsetZ = (Math.random() - 0.5) * AIR_CHUNK_SIZE * 2;
+    
+    // 设置低空高度
+    const height = lowAltitude.min + Math.random() * (lowAltitude.max - lowAltitude.min);
+    
+    // 设置UFO的位置
+    ufo.position.set(offsetX, height, offsetZ);
+    
+    // 设置UFO的特殊运动特性（低空UFO移动更加不规则）
+    ufo.userData.speed = 3.0 + Math.random() * 5.0; // 速度更快
+    ufo.userData.movementDirection = {
+      x: (Math.random() - 0.5) * 2,
+      z: (Math.random() - 0.5) * 2
+    };
+    
+    // 归一化方向向量
+    const length = Math.sqrt(
+      ufo.userData.movementDirection.x * ufo.userData.movementDirection.x +
+      ufo.userData.movementDirection.z * ufo.userData.movementDirection.z
+    );
+    ufo.userData.movementDirection.x /= length;
+    ufo.userData.movementDirection.z /= length;
+    
+    // UFO特殊行为 - 更频繁的方向变化
+    ufo.userData.directionChangeTime = 3 + Math.random() * 7; // 3-10秒后改变方向
+    ufo.userData.timeUntilChange = ufo.userData.directionChangeTime;
+    
+    // 更大的缩放 - 靠近地面的UFO看起来会更大
+    const scale = 0.6 + Math.random() * 0.4; // 60%-100%的正常大小
+    ufo.scale.set(scale, scale, scale);
+    
+    // 让UFO发出更强的光
+    ufo.children.forEach(child => {
+      if (child.type === 'PointLight') {
+        child.intensity = 3; // 增强光照强度
+        child.distance = 150; // 增加光照范围
+      }
+    });
+    
+    // 标记为低空UFO（方便识别）
+    ufo.userData.isLowAltitudeUFO = true;
+    
+    // 添加到空中物体组
+    airObjects.add(ufo);
+  }
+  
+  return airObjects;
 } 
