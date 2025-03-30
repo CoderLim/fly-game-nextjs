@@ -5,6 +5,7 @@ import { createPlane } from './plane.js';
 import { createBuildings } from './buildings.js';
 import { createSky } from './sky.js';
 import { createGround } from './ground.js';
+import { createAirObjects, updateAirObjectsChunks, updateAirObjects, getCurrentWeather } from './airObjects.js';
 
 // 地图生成相关常量
 const CHUNK_SIZE = 500; // 区块大小
@@ -26,6 +27,9 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1; // 微调曝光度，减少过度曝光
 renderer.outputEncoding = THREE.sRGBEncoding;
 document.body.appendChild(renderer.domElement);
+
+// 存储所有动画混合器
+const mixers = [];
 
 // 天空颜色
 scene.background = new THREE.Color(0x87ceeb); // 设置更自然的天空蓝
@@ -82,6 +86,10 @@ scene.add(sky);
 const ground = createGround();
 scene.add(ground);
 
+// 在初始化场景时，添加空中物体
+const airObjectsGroup = createAirObjects();
+scene.add(airObjectsGroup);
+
 // 首先加载LittlestTokyo模型，确保它有足够时间加载
 console.log('准备加载LittlestTokyo模型...');
 loadLittlestTokyoModel();
@@ -98,8 +106,8 @@ camera.lookAt(plane.position);
 const gameState = {
   speed: 0,
   score: 0,
-  acceleration: 0.5,
-  maxSpeed: 25,
+  acceleration: 25.0,  // 提高加速度，从5.0增加到25.0（原来的5倍）
+  maxSpeed: 125,       // 提高最大速度，从25增加到125（原来的5倍）
   yawSpeed: 0.05,
   pitchSpeed: 0.05,
   altitude: 50,
@@ -110,6 +118,9 @@ const gameState = {
     z: 0
   }
 };
+
+// 帧率计算
+let lastFrameTime = performance.now();
 
 // 键盘控制状态
 const keys = {
@@ -354,7 +365,7 @@ function detectCollisions() {
 }
 
 // 更新飞机位置和旋转
-function updatePlane() {
+function updatePlane(delta) {
   if (gameState.crashed) return;
 
   // 记住更新前的位置（用于碰撞检测）
@@ -362,33 +373,33 @@ function updatePlane() {
   
   // 前进/后退
   if (keys.ArrowUp) {
-    gameState.speed = Math.min(gameState.speed + gameState.acceleration, gameState.maxSpeed);
+    gameState.speed = Math.min(gameState.speed + gameState.acceleration * delta * 5.0, gameState.maxSpeed);
   } else if (keys.ArrowDown) {
-    gameState.speed = Math.max(gameState.speed - gameState.acceleration, -gameState.maxSpeed / 2);
+    gameState.speed = Math.max(gameState.speed - gameState.acceleration * delta * 5.0, -gameState.maxSpeed / 2);
   } else {
     // 没有按键时慢慢减速
     if (gameState.speed > 0) {
-      gameState.speed = Math.max(gameState.speed - gameState.acceleration / 4, 0);
+      gameState.speed = Math.max(gameState.speed - gameState.acceleration * delta / 4, 0);
     } else if (gameState.speed < 0) {
-      gameState.speed = Math.min(gameState.speed + gameState.acceleration / 4, 0);
+      gameState.speed = Math.min(gameState.speed + gameState.acceleration * delta / 4, 0);
     }
   }
 
   // 左右移动
   if (keys.ArrowLeft) {
-    plane.position.x -= gameState.speed / 1.5;
+    plane.position.x -= gameState.speed * delta * 3.0;
   }
   if (keys.ArrowRight) {
-    plane.position.x += gameState.speed / 1.5;
+    plane.position.x += gameState.speed * delta * 3.0;
   }
 
   // 上升/下降
   if (keys.KeyW) {
-    gameState.altitude += 3;
-    gameState.planeRotation.x = -Math.PI / 10;
+    gameState.altitude += 15 * delta;
+    gameState.planeRotation.x = -Math.PI / 10 * delta;
   } else if (keys.KeyS) {
-    gameState.altitude -= 3;
-    gameState.planeRotation.x = Math.PI / 10;
+    gameState.altitude -= 15 * delta;
+    gameState.planeRotation.x = Math.PI / 10 * delta;
   } else {
     gameState.planeRotation.x = 0;
   }
@@ -398,11 +409,11 @@ function updatePlane() {
 
   // 左右转向
   if (keys.KeyA) {
-    gameState.planeRotation.y += gameState.yawSpeed;
-    gameState.planeRotation.z = Math.PI / 6;
+    gameState.planeRotation.y += gameState.yawSpeed * delta;
+    gameState.planeRotation.z = Math.PI / 6 * delta;
   } else if (keys.KeyD) {
-    gameState.planeRotation.y -= gameState.yawSpeed;
-    gameState.planeRotation.z = -Math.PI / 6;
+    gameState.planeRotation.y -= gameState.yawSpeed * delta;
+    gameState.planeRotation.z = -Math.PI / 6 * delta;
   } else {
     gameState.planeRotation.z = 0;
   }
@@ -414,16 +425,16 @@ function updatePlane() {
 
   // 更新飞机位置 - 确保方向向量是沿着z轴负方向
   const direction = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), gameState.planeRotation.y);
-  plane.position.addScaledVector(direction, gameState.speed);
+  plane.position.addScaledVector(direction, gameState.speed * delta);
   plane.position.y = gameState.altitude;
 
   // 更新螺旋桨旋转
   if (propeller) {
-    propeller.rotation.z += 0.2 + gameState.speed * 0.1;
+    propeller.rotation.z += 0.2 + gameState.speed * 0.1 * delta;
   }
 
   // 若飞得足够远，增加分数
-  gameState.score += Math.abs(gameState.speed) * 0.1;
+  gameState.score += Math.abs(gameState.speed) * 0.1 * delta;
   document.getElementById('score').innerText = `Score: ${Math.floor(gameState.score)}`;
 
   // 更新区块加载
@@ -451,7 +462,7 @@ function loadChunk(chunkX, chunkZ) {
   const chunk = new THREE.Group();
   
   // 创建建筑
-  const buildingCount = 5 + Math.floor(Math.random() * 15); // 每个区块5-20个建筑
+  const buildingCount = Math.floor(Math.random() * 3); // 每个区块0-2个建筑，减少为原来的1/10
   
   for (let i = 0; i < buildingCount; i++) {
     // 随机建筑物尺寸
@@ -757,7 +768,7 @@ function gameOver() {
 }
 
 // 更新相机位置
-function updateCamera() {
+function updateCamera(delta) {
   // 设置相机位置靠近飞机
   const cameraOffset = new THREE.Vector3(0, 30, 100);
   
@@ -765,14 +776,14 @@ function updateCamera() {
   if (mouseControl.isPressed || Math.abs(mouseControl.totalRotationX) > 0.001 || Math.abs(mouseControl.totalRotationY) > 0.001) {
     // 创建旋转矩阵
     const rotationMatrix = new THREE.Matrix4();
-    rotationMatrix.makeRotationY(mouseControl.totalRotationY);
+    rotationMatrix.makeRotationY(mouseControl.totalRotationY * delta);
     
     // 应用旋转到基础偏移向量
     const rotatedOffset = cameraOffset.clone().applyMatrix4(rotationMatrix);
     
     // 添加垂直旋转
-    rotatedOffset.y += 30 * Math.sin(mouseControl.totalRotationX);
-    rotatedOffset.z += 30 * Math.sin(mouseControl.totalRotationX);
+    rotatedOffset.y += 30 * Math.sin(mouseControl.totalRotationX * delta);
+    rotatedOffset.z += 30 * Math.sin(mouseControl.totalRotationX * delta);
     
     // 只有在鼠标释放后才回到默认视角
     if (!mouseControl.isPressed) {
@@ -809,13 +820,14 @@ function updateCamera() {
 
 // 动画循环
 let clock = new THREE.Clock(); // 添加时钟来处理动画
-const mixers = []; // 存储所有需要更新的动画混合器
 
 function animate() {
   requestAnimationFrame(animate);
   
-  // 计算帧间隔时间
-  const delta = clock.getDelta();
+  // 计算帧率
+  const now = performance.now();
+  const delta = (now - lastFrameTime) / 1000; // 转换为秒
+  lastFrameTime = now;
   
   // 更新所有动画混合器
   mixers.forEach(mixer => mixer.update(delta));
@@ -841,9 +853,23 @@ function animate() {
     window.updateClouds(delta * 100);
   }
   
-  updatePlane();
-  updateCamera();
+  // 更新飞机
+  updatePlane(delta);
   
+  // 更新碰撞检测
+  detectCollisions();
+  
+  // 更新摄像机
+  updateCamera(delta);
+  
+  // 更新区块
+  updateChunks();
+  
+  // 更新空中物体并检查是否需要加载/卸载新的空中物体区块
+  updateAirObjectsChunks(plane.position);
+  updateAirObjects(delta);
+  
+  // 渲染场景
   renderer.render(scene, camera);
 }
 

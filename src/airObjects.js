@@ -27,13 +27,15 @@ const weatherSystem = {
     
     // 默认规则
     const rules = {
-      balloonChance: 0.4,    // 热气球出现概率
-      blimpChance: 0.3,      // 飞艇出现概率
-      droneChance: 0.3,      // 无人机出现概率
+      balloonChance: 0.3,    // 热气球出现概率
+      blimpChance: 0.25,     // 飞艇出现概率
+      droneChance: 0.25,     // 无人机出现概率
+      ufoChance: 0.2,        // UFO出现概率
       heightRanges: {        // 高度范围（米）
         balloon: { min: 100, max: 300 },
         blimp: { min: 200, max: 500 },
-        drone: { min: 50, max: 150 }
+        drone: { min: 50, max: 150 },
+        ufo: { min: 300, max: 800 }
       },
       speedFactor: 1.0,      // 速度系数
       movementDirection: { x: 0, z: -1 }  // 默认向北移动
@@ -43,14 +45,16 @@ const weatherSystem = {
     switch (weather) {
       case 'sunny':
         // 晴天适合所有飞行器
-        rules.balloonChance = 0.5;     // 更多热气球
+        rules.balloonChance = 0.4;     // 更多热气球
+        rules.ufoChance = 0.25;        // 晴天UFO更多
         rules.speedFactor = 1.0;
         break;
         
       case 'cloudy':
         // 多云天气减少热气球，增加飞艇
         rules.balloonChance = 0.2;
-        rules.blimpChance = 0.5;
+        rules.blimpChance = 0.4;
+        rules.ufoChance = 0.3;         // 多云天气UFO出现更多
         rules.heightRanges.balloon.max = 200; // 热气球飞得更低
         rules.speedFactor = 0.8;      // 整体速度较慢
         break;
@@ -58,6 +62,7 @@ const weatherSystem = {
       case 'windy':
         // 有风天气减少无人机，热气球飞得更低
         rules.droneChance = 0.1;
+        rules.ufoChance = 0.15;        // 风大时UFO减少
         rules.heightRanges.balloon.min = 80;
         rules.heightRanges.balloon.max = 150;
         rules.speedFactor = 1.5;      // 整体速度较快
@@ -74,6 +79,7 @@ const weatherSystem = {
         rules.balloonChance = 0.1;
         rules.blimpChance = 0.2;
         rules.droneChance = 0.2;
+        rules.ufoChance = 0.1;         // 雨天UFO很少
         rules.heightRanges.balloon.max = 120; // 热气球飞得更低
         rules.heightRanges.blimp.max = 350;   // 飞艇也降低高度
         rules.speedFactor = 0.6;      // 整体速度很慢
@@ -424,125 +430,222 @@ function createDrone() {
   return group;
 }
 
-// 生成区块中的空中物体
+// 创建UFO
+function createUFO() {
+  const group = new THREE.Group();
+  
+  // UFO主体 - 飞碟形状
+  const bodyGeometry = new THREE.SphereGeometry(15, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  const bodyMaterial = new THREE.MeshPhongMaterial({
+    color: 0xcccccc,
+    flatShading: false,
+    metalness: 0.8,
+    roughness: 0.2
+  });
+  const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+  body.position.y = 0;
+  body.scale.y = 0.3; // 压扁成飞碟形状
+  body.castShadow = true;
+  group.add(body);
+  
+  // 底部圆形舱
+  const bottomGeometry = new THREE.SphereGeometry(8, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+  const bottomMaterial = new THREE.MeshPhongMaterial({
+    color: 0x333333,
+    metalness: 0.5,
+    roughness: 0.5
+  });
+  const bottom = new THREE.Mesh(bottomGeometry, bottomMaterial);
+  bottom.position.y = -2;
+  bottom.scale.y = 0.5;
+  bottom.castShadow = true;
+  group.add(bottom);
+  
+  // 舱内发光 - 随机颜色
+  const glowColors = [0x00ff00, 0xff00ff, 0x00ffff, 0xffff00];
+  const glowColor = glowColors[Math.floor(Math.random() * glowColors.length)];
+  const glowGeometry = new THREE.SphereGeometry(7.5, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 4);
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: glowColor,
+    transparent: true,
+    opacity: 0.7
+  });
+  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+  glow.position.y = -3;
+  glow.scale.y = 0.3;
+  group.add(glow);
+  
+  // 添加光照效果 - 从底部发出的光
+  const light = new THREE.PointLight(glowColor, 2, 100);
+  light.position.y = -5;
+  group.add(light);
+  
+  // 顶部圆顶 - 透明舱
+  const domeGeometry = new THREE.SphereGeometry(5, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  const domeMaterial = new THREE.MeshPhongMaterial({
+    color: 0x88ccff,
+    transparent: true,
+    opacity: 0.7
+  });
+  const dome = new THREE.Mesh(domeGeometry, domeMaterial);
+  dome.position.y = 4;
+  dome.castShadow = false;
+  group.add(dome);
+  
+  // 围绕主体的环
+  const ringGeometry = new THREE.TorusGeometry(18, 2, 16, 50);
+  const ringMaterial = new THREE.MeshPhongMaterial({
+    color: 0x888888,
+    flatShading: false,
+    metalness: 0.7
+  });
+  const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0;
+  ring.castShadow = true;
+  group.add(ring);
+  
+  // 添加闪烁的灯
+  const lightCount = 8;
+  for (let i = 0; i < lightCount; i++) {
+    const angle = (i / lightCount) * Math.PI * 2;
+    const lightGeometry = new THREE.SphereGeometry(1, 8, 8);
+    
+    // 交替的灯光颜色
+    const lightMaterial = new THREE.MeshBasicMaterial({
+      color: i % 2 === 0 ? 0xff0000 : 0x0000ff
+    });
+    
+    const lightMesh = new THREE.Mesh(lightGeometry, lightMaterial);
+    lightMesh.position.x = Math.sin(angle) * 18;
+    lightMesh.position.z = Math.cos(angle) * 18;
+    lightMesh.position.y = 0;
+    
+    // 添加闪烁动画数据
+    lightMesh.userData.blinkOffset = Math.random() * Math.PI * 2; // 随机闪烁频率
+    lightMesh.userData.blinkSpeed = 0.05 + Math.random() * 0.05;
+    
+    group.add(lightMesh);
+  }
+  
+  // 添加UFO特有的属性
+  group.userData.type = 'ufo';
+  group.userData.rotationSpeed = 0.01 + Math.random() * 0.02; // 随机旋转速度
+  group.userData.hoverAmplitude = 0.5 + Math.random() * 1.0;  // 随机悬浮幅度
+  group.userData.hoverOffset = Math.random() * Math.PI * 2;    // 随机悬浮偏移
+  group.userData.hoverSpeed = 0.01 + Math.random() * 0.02;     // 随机悬浮速度
+  
+  return group;
+}
+
+// 修改generateAirChunk函数的对象生成逻辑，加入UFO生成的可能性
 function generateAirChunk(chunkX, chunkZ) {
-  const chunkOriginX = chunkX * AIR_CHUNK_SIZE;
-  const chunkOriginZ = chunkZ * AIR_CHUNK_SIZE;
+  const chunkObjects = [];
+  const rules = weatherSystem.getGenerationRules();
   
-  // 获取当前天气和生成规则
-  const generationRules = weatherSystem.getGenerationRules();
-  
-  // 使用确定性随机数生成器
-  const chunkSeed = chunkX * 10000 + chunkZ;
+  // 创建随机数生成器，使用区块坐标作为种子，确保同一区块总是生成相同的对象
   const random = () => {
-    const x = Math.sin(chunkSeed + loadedAirChunks.size) * 10000;
+    // 简单的伪随机数生成，基于区块坐标
+    let x = Math.sin(chunkX * 12.9898 + chunkZ * 78.233) * 43758.5453;
     return x - Math.floor(x);
   };
+
+  // 根据区块位置确定这个区块中应该有多少个空中物体
+  let count = Math.floor(random() * (AIR_OBJECTS_PER_CHUNK + 1));
   
-  // 根据当前天气决定区块中的物体数量
-  let objectCount = AIR_OBJECTS_PER_CHUNK;
-  if (generationRules.weather === 'rainy') {
-    // 雨天减少空中物体
-    objectCount = Math.max(1, Math.floor(AIR_OBJECTS_PER_CHUNK * 0.5));
-  } else if (generationRules.weather === 'sunny') {
-    // 晴天增加空中物体
-    objectCount = AIR_OBJECTS_PER_CHUNK + 1;
+  // 根据天气可能会减少对象数量
+  if (rules.weather === 'rainy') {
+    count = Math.max(1, Math.floor(count * 0.6)); // 雨天减少物体数量
   }
   
-  // 标记商业区块 - 商业区块会有更多无人机
-  const isCommercialDistrict = (Math.abs(chunkX + chunkZ) % 4 === 0);
-  
-  // 创建物体
-  for (let i = 0; i < objectCount; i++) {
-    // 根据概率选择空中物体类型
-    const typeRoll = random();
-    let airObject;
-    let type;
+  for (let i = 0; i < count; i++) {
+    // 确定这个物体的位置
+    const offsetX = (random() - 0.5) * AIR_CHUNK_SIZE;
+    const offsetZ = (random() - 0.5) * AIR_CHUNK_SIZE;
     
-    // 调整类型选择概率
-    let balloonChance = generationRules.balloonChance;
-    let blimpChance = generationRules.blimpChance;
-    let droneChance = generationRules.droneChance;
-    
-    // 在商业区增加无人机概率
-    if (isCommercialDistrict) {
-      droneChance *= 1.5;
-      // 归一化概率
-      const sum = balloonChance + blimpChance + droneChance;
-      balloonChance /= sum;
-      blimpChance /= sum;
-      droneChance /= sum;
-    }
-    
-    if (typeRoll < balloonChance) {
-      type = 'balloon';
-      airObject = createHotAirBalloon();
-    } else if (typeRoll < balloonChance + blimpChance) {
-      type = 'blimp';
-      airObject = createBlimp();
-    } else {
-      type = 'drone';
-      airObject = createDrone();
-    }
-    
-    // 根据类型设置高度范围
-    const heightRange = generationRules.heightRanges[type];
-    
-    // 随机位置
-    const x = chunkOriginX + random() * AIR_CHUNK_SIZE;
-    const y = heightRange.min + random() * (heightRange.max - heightRange.min);
-    const z = chunkOriginZ + random() * AIR_CHUNK_SIZE;
-    
-    airObject.position.set(x, y, z);
-    
-    // 根据天气系统设定的移动方向来确定物体朝向
-    const direction = generationRules.movementDirection;
-    airObject.rotation.y = Math.atan2(direction.x, direction.z);
-    
-    // 为动画添加一些随机属性，并根据天气调整
-    airObject.userData.originalY = y;
-    airObject.userData.floatSpeed = (0.05 + random() * 0.1) * generationRules.speedFactor;
-    airObject.userData.floatAmplitude = 5 + random() * 10;
-    
-    // 飞艇和无人机有更大的旋转可能性
-    if (type === 'blimp' || type === 'drone') {
-      airObject.userData.rotationSpeed = 0.001 + random() * 0.002;
-    } else {
-      airObject.userData.rotationSpeed = 0.0005 + random() * 0.001; // 热气球旋转较慢
-    }
-    
-    // 设置移动速度和方向 - 根据天气调整
-    airObject.userData.moveForward = true; // 所有物体都在移动
-    
-    // 根据物体类型和天气设置速度
-    if (type === 'balloon') {
-      airObject.userData.forwardSpeed = (0.1 + random() * 0.2) * generationRules.speedFactor;
-    } else if (type === 'blimp') {
-      airObject.userData.forwardSpeed = (0.3 + random() * 0.4) * generationRules.speedFactor;
-    } else { // drone
-      airObject.userData.forwardSpeed = (0.5 + random() * 0.8) * generationRules.speedFactor;
-    }
-    
-    // 添加移动方向矢量 - 考虑天气系统
-    airObject.userData.movementDirection = {
-      x: direction.x,
-      z: direction.z
+    const position = {
+      x: chunkX * AIR_CHUNK_SIZE + offsetX,
+      z: chunkZ * AIR_CHUNK_SIZE + offsetZ
     };
     
-    // 给很小一部分无人机设置巡逻行为
-    if (type === 'drone' && random() > 0.7) {
-      airObject.userData.isPatrolling = true;
-      airObject.userData.patrolRadius = 30 + random() * 50;
-      airObject.userData.patrolSpeed = 0.02 + random() * 0.03;
-      airObject.userData.patrolCenter = {
-        x: airObject.position.x,
-        z: airObject.position.z
+    // 根据各种物体的概率决定生成什么类型的物体
+    const rand = random();
+    let airObject;
+    
+    // 修改物体选择逻辑，加入UFO选择逻辑
+    if (rand < rules.balloonChance) {  // 热气球
+      airObject = createHotAirBalloon();
+      position.y = rules.heightRanges.balloon.min + 
+                   random() * (rules.heightRanges.balloon.max - rules.heightRanges.balloon.min);
+      
+      // 热气球移动特性
+      airObject.userData.speed = (0.5 + random() * 1.0) * rules.speedFactor;
+      airObject.userData.movementDirection = { 
+        x: rules.movementDirection.x + (random() - 0.5) * 0.2,
+        z: rules.movementDirection.z + (random() - 0.5) * 0.2
       };
-      airObject.userData.patrolAngle = random() * Math.PI * 2;
+    }
+    else if (rand < rules.balloonChance + rules.blimpChance) {  // 飞艇
+      airObject = createBlimp();
+      position.y = rules.heightRanges.blimp.min + 
+                   random() * (rules.heightRanges.blimp.max - rules.heightRanges.blimp.min);
+      
+      // 飞艇移动特性（比热气球快）
+      airObject.userData.speed = (1.0 + random() * 1.5) * rules.speedFactor;
+      airObject.userData.movementDirection = {
+        x: rules.movementDirection.x + (random() - 0.5) * 0.1,
+        z: rules.movementDirection.z + (random() - 0.5) * 0.1
+      };
+    }
+    else if (rand < rules.balloonChance + rules.blimpChance + rules.droneChance) {  // 无人机
+      airObject = createDrone();
+      position.y = rules.heightRanges.drone.min + 
+                   random() * (rules.heightRanges.drone.max - rules.heightRanges.drone.min);
+      
+      // 无人机移动特性（速度变化大，方向变化大）
+      airObject.userData.speed = (1.0 + random() * 3.0) * rules.speedFactor;
+      airObject.userData.movementDirection = {
+        x: (random() - 0.5) * 2, // 无人机方向更随机
+        z: (random() - 0.5) * 2
+      };
+      // 归一化方向向量
+      const length = Math.sqrt(
+        airObject.userData.movementDirection.x * airObject.userData.movementDirection.x +
+        airObject.userData.movementDirection.z * airObject.userData.movementDirection.z
+      );
+      airObject.userData.movementDirection.x /= length;
+      airObject.userData.movementDirection.z /= length;
+    }
+    else {  // UFO
+      airObject = createUFO();
+      position.y = rules.heightRanges.ufo.min + 
+                   random() * (rules.heightRanges.ufo.max - rules.heightRanges.ufo.min);
+      
+      // UFO移动特性（速度快，方向变化剧烈，可能突然改变方向）
+      airObject.userData.speed = (2.0 + random() * 4.0) * rules.speedFactor;
+      airObject.userData.movementDirection = {
+        x: (random() - 0.5) * 2,
+        z: (random() - 0.5) * 2
+      };
+      // 归一化方向向量
+      const length = Math.sqrt(
+        airObject.userData.movementDirection.x * airObject.userData.movementDirection.x +
+        airObject.userData.movementDirection.z * airObject.userData.movementDirection.z
+      );
+      airObject.userData.movementDirection.x /= length;
+      airObject.userData.movementDirection.z /= length;
+      
+      // UFO特殊行为 - 随机方向变化时间
+      airObject.userData.directionChangeTime = 10 + random() * 20; // 10-30秒后改变方向
+      airObject.userData.timeUntilChange = airObject.userData.directionChangeTime;
     }
     
-    airObjects.add(airObject);
+    // 设置位置并添加到区块对象中
+    airObject.position.set(position.x, position.y, position.z);
+    chunkObjects.push(airObject);
   }
+  
+  return chunkObjects;
 }
 
 // 初始化空中物体
@@ -604,72 +707,79 @@ export function getCurrentWeather() {
   return weatherSystem.getCurrentWeather();
 }
 
-// 动画更新函数
+// 修改updateAirObjects函数以支持UFO的特殊行为
 export function updateAirObjects(deltaTime) {
-  const time = Date.now() * 0.001; // 当前时间（秒）
-  
+  // 遍历所有空中物体并更新它们的位置
   airObjects.children.forEach(object => {
-    // 上下浮动
-    if (object.userData.originalY) {
-      object.position.y = object.userData.originalY + 
-                          Math.sin(time * object.userData.floatSpeed) * 
-                          object.userData.floatAmplitude;
-    }
+    if (!object.userData.speed) return; // 跳过没有速度属性的对象
     
-    // 缓慢旋转
-    if (object.userData.rotationSpeed) {
+    // 一般移动逻辑
+    const moveDist = object.userData.speed * deltaTime;
+    object.position.x += object.userData.movementDirection.x * moveDist;
+    object.position.z += object.userData.movementDirection.z * moveDist;
+    
+    // 对于UFO，添加特殊的行为
+    if (object.userData.type === 'ufo') {
+      // 旋转飞碟
       object.rotation.y += object.userData.rotationSpeed;
-    }
-    
-    // 向前移动 - 基于物体的移动方向
-    if (object.userData.moveForward && object.userData.forwardSpeed) {
-      if (object.userData.isPatrolling) {
-        // 巡逻模式 - 绕着中心点巡逻
-        object.userData.patrolAngle += object.userData.patrolSpeed;
-        const center = object.userData.patrolCenter;
-        const radius = object.userData.patrolRadius;
+      
+      // 上下悬浮动画
+      object.position.y += Math.sin(
+        performance.now() * 0.001 * object.userData.hoverSpeed + object.userData.hoverOffset
+      ) * object.userData.hoverAmplitude * deltaTime;
+      
+      // 随机闪烁灯光
+      object.children.forEach(child => {
+        if (child.userData.blinkSpeed) {
+          const blinkValue = (Math.sin(
+            performance.now() * 0.001 * child.userData.blinkSpeed + child.userData.blinkOffset
+          ) + 1) / 2;
+          if (child.material) {
+            child.material.opacity = 0.5 + blinkValue * 0.5;
+          }
+        }
+      });
+      
+      // 随机方向变化
+      object.userData.timeUntilChange -= deltaTime;
+      if (object.userData.timeUntilChange <= 0) {
+        // 重置计时器
+        object.userData.timeUntilChange = object.userData.directionChangeTime;
         
-        object.position.x = center.x + Math.cos(object.userData.patrolAngle) * radius;
-        object.position.z = center.z + Math.sin(object.userData.patrolAngle) * radius;
+        // 生成新的随机方向
+        const angle = Math.random() * Math.PI * 2;
+        object.userData.movementDirection = {
+          x: Math.sin(angle),
+          z: Math.cos(angle)
+        };
         
-        // 让无人机朝向移动方向
-        const tangent = new THREE.Vector3(
-          -Math.sin(object.userData.patrolAngle),
-          0,
-          Math.cos(object.userData.patrolAngle)
-        );
-        object.lookAt(
-          object.position.clone().add(tangent)
-        );
-      } else if (object.userData.movementDirection) {
-        // 标准移动模式 - 沿着指定方向
-        const direction = new THREE.Vector3(
-          object.userData.movementDirection.x,
-          0,
-          object.userData.movementDirection.z
-        ).normalize();
-        
-        object.position.addScaledVector(direction, object.userData.forwardSpeed);
-      } else {
-        // 兼容旧代码的移动模式
-        const direction = new THREE.Vector3(0, 0, -1).applyAxisAngle(
-          new THREE.Vector3(0, 1, 0),
-          object.rotation.y
-        );
-        object.position.addScaledVector(direction, object.userData.forwardSpeed);
+        // 有小概率突然加速或减速
+        if (Math.random() < 0.3) {
+          object.userData.speed *= (Math.random() * 1.5) + 0.5; // 0.5x-2x速度变化
+        }
       }
     }
     
-    // 更新螺旋桨旋转
-    if (object.userData.propeller) {
-      object.userData.propeller.rotation.x += 0.2;
+    // 对于热气球，添加轻微的上下飘动
+    if (object.userData.type === 'balloon') {
+      object.position.y += Math.sin(performance.now() * 0.0005) * 0.05;
     }
     
-    // 更新无人机多个螺旋桨
-    if (object.userData.propellers) {
-      object.userData.propellers.forEach(propeller => {
-        propeller.rotation.y += propeller.userData.rotation;
-      });
+    // 对于无人机，添加不规则运动
+    if (object.userData.type === 'drone') {
+      // 无人机倾斜，朝向移动方向
+      const angle = Math.atan2(
+        object.userData.movementDirection.x,
+        object.userData.movementDirection.z
+      );
+      object.rotation.y = angle;
+      
+      // 随机小幅度高度变化
+      if (Math.random() < 0.05) {
+        object.position.y += (Math.random() - 0.5) * 2;
+      }
     }
   });
+  
+  return airObjects;
 } 

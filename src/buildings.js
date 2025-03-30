@@ -5,7 +5,7 @@ export function createBuildings() {
   
   // 创建多个不同高度和位置的建筑物
   const citySize = 1000; // 城市大小
-  const buildingCount = 200; // 建筑物数量
+  const buildingCount = 5; // 建筑物数量，减少为原来的1/10
   
   // 建筑物材质
   const buildingMaterials = [
